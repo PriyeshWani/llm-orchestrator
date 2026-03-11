@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧠 Task Orchestrator - DAG Decomposition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'SF Mono', 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    
+    .container { max-width: 1600px; margin: 0 auto; }
+    
+    header { text-align: center; margin-bottom: 24px; }
+    
+    h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #00d4ff, #7b2fff, #ff00d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .subtitle { color: #888; font-size: 0.9rem; }
+    
+    /* Input Section */
+    .input-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .task-input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 14px;
+    }
+    
+    .task-input:focus {
+      outline: none;
+      border-color: #7b2fff;
+      box-shadow: 0 0 20px rgba(123, 47, 255, 0.2);
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .model-select {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #7b2fff, #00d4ff);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(123, 47, 255, 0.4);
+    }
+    
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+    
+    .panel {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .panel-icon { font-size: 1.3rem; }
+    .panel-title { font-size: 0.95rem; font-weight: 600; }
+    
+    .model-badge {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    
+    .model-haiku { background: #10b981; color: #fff; }
+    .model-sonnet { background: #6366f1; color: #fff; }
+    .model-opus { background: #ec4899; color: #fff; }
+    
+    /* DAG Visualization */
+    .dag-container {
+      min-height: 350px;
+      position: relative;
+    }
+    
+    .execution-level {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      position: relative;
+    }
+    
+    .level-label {
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%) rotate(-90deg);
+      font-size: 0.65rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .level-connector {
+      position: absolute;
+      left: 50%;
+      bottom: -16px;
+      width: 2px;
+      height: 16px;
+      background: linear-gradient(to bottom, rgba(123,47,255,0.5), transparent);
+    }
+    
+    .subtask-card {
+      flex: 1;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 12px;
+      min-width: 180px;
+      transition: all 0.3s;
+    }
+    
+    .subtask-card.pending { border-color: #666; }
+    .subtask-card.running { 
+      border-color: #f59e0b; 
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+      animation: glow 1.5s ease-in-out infinite;
+    }
+    .subtask-card.complete { border-color: #10b981; }
+    .subtask-card.error { border-color: #ef4444; }
+    
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+      50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.5); }
+    }
+    
+    .subtask-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .subtask-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .pending .subtask-status { background: #666; }
+    .running .subtask-status { background: #f59e0b; animation: pulse 1s infinite; }
+    .complete .subtask-status { background: #10b981; }
+    .error .subtask-status { background: #ef4444; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+    
+    .subtask-id {
+      font-size: 0.65rem;
+      color: #888;
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .subtask-model {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: auto;
+    }
+    
+    .subtask-name {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    
+    .subtask-meta {
+      display: flex;
+      gap: 8px;
+      font-size: 0.7rem;
+      color: #888;
+    }
+    
+    .complexity-bar {
+      width: 50px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .complexity-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+    
+    .complexity-low { background: #10b981; }
+    .complexity-medium { background: #f59e0b; }
+    .complexity-high { background: #ef4444; }
+    
+    .subtask-deps {
+      font-size: 0.65rem;
+      color: #666;
+      margin-top: 6px;
+    }
+    
+    .subtask-result {
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255,255,255,0.1);
+      max-height: 60px;
+      overflow-y: auto;
+    }
+    
+    /* Logs */
+    .logs {
+      font-size: 0.8rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .log-entry {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    
+    .log-time { color: #666; flex-shrink: 0; font-size: 0.7rem; }
+    .log-model { padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; flex-shrink: 0; }
+    .log-msg { flex: 1; }
+    
+    .log-entry.orchestrator { background: rgba(123, 47, 255, 0.1); }
+    .log-entry.subagent { background: rgba(0, 212, 255, 0.05); }
+    .log-entry.parallel { background: rgba(16, 185, 129, 0.1); }
+    
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    @media (max-width: 800px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+    
+    .stat-card {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #00d4ff, #7b2fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .stat-label { font-size: 0.7rem; color: #888; margin-top: 4px; }
+    
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      color: #666;
+    }
+    
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: #888;
+    }
+    
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    
+    /* Model Config */
+    .model-config-panel {
+      margin-bottom: 20px;
+    }
+    
+    .model-input {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    
+    .model-input:focus {
+      outline: none;
+      border-color: #7b2fff;
+    }
+    
+    .model-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .model-card.local { border-left: 3px solid #10b981; }
+    .model-card.cloud { border-left: 3px solid #6366f1; }
+    .model-card.disabled { opacity: 0.5; }
+    
+    .model-card-info { flex: 1; }
+    .model-card-name { font-weight: 600; font-size: 0.9rem; }
+    .model-card-endpoint { font-size: 0.75rem; color: #888; margin-top: 2px; }
+    .model-card-tags { display: flex; gap: 6px; margin-top: 6px; }
+    .model-card-tag {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+    }
+    .model-card-tag.free { background: rgba(16,185,129,0.3); color: #10b981; }
+    .model-card-tag.fast { background: rgba(245,158,11,0.3); color: #f59e0b; }
+    
+    .model-card-actions {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .model-card-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    
+    .model-card-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+    .model-card-btn.delete:hover { background: rgba(239,68,68,0.3); color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🧠 Task Orchestrator</h1>
+      <p class="subtitle">DAG-based Decomposition with Parallel Execution</p>
+    </header>
+    
+    <div class="input-section">
+      <textarea class="task-input" id="taskInput" placeholder="Enter a complex task to decompose...&#10;&#10;Example: Create a comprehensive market analysis report for electric vehicles including competitor analysis, market trends, and future predictions."></textarea>
+      <div class="controls">
+        <label style="color: #888; font-size: 0.8rem;">Orchestrator:</label>
+        <select class="model-select" id="orchestratorModelId">
+          <option value="haiku">Haiku (Fast)</option>
+          <option value="sonnet" selected>Sonnet (Balanced)</option>
+          <option value="opus">Opus (Quality)</option>
+        </select>
+        <label style="color: #888; font-size: 0.8rem; margin-left: 10px;">Strategy:</label>
+        <select class="model-select" id="routingStrategy">
+          <option value="auto">Auto (Complexity)</option>
+          <option value="cheapest">Cheapest First</option>
+          <option value="fastest">Fastest</option>
+          <option value="quality">Quality First</option>
+          <option value="local-first">Local First</option>
+        </select>
+        <button class="btn" id="runBtn">🚀 Decompose & Execute</button>
+        <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="toggleModelConfig()">⚙️ Models</button>
+      </div>
+    </div>
+    
+    <!-- Model Configuration Panel -->
+    <div class="model-config-panel" id="modelConfigPanel" style="display:none;">
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-header">
+          <span class="panel-icon">⚙️</span>
+          <span class="panel-title">Model Configuration</span>
+          <button class="btn" style="margin-left:auto; padding:6px 12px; font-size:0.8rem;" onclick="toggleModelConfig()">✕ Close</button>
+        </div>
+        
+        <div class="model-list" id="modelList"></div>
+        
+        <div class="add-model-form">
+          <h4 style="margin: 16px 0 12px; color: #888; font-size: 0.85rem;">➕ Add New Model</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+            <input type="text" id="newModelId" placeholder="Model ID (e.g., llama3)" class="model-input">
+            <input type="text" id="newModelName" placeholder="Display Name" class="model-input">
+            <input type="text" id="newModelEndpoint" placeholder="API Endpoint URL" class="model-input" style="grid-column: span 2;">
+            <input type="text" id="newModelModel" placeholder="Model name at endpoint" class="model-input">
+            <select id="newModelTier" class="model-input">
+              <option value="free">Free (Local)</option>
+              <option value="cheap">Cheap</option>
+              <option value="medium">Medium</option>
+              <option value="expensive">Expensive</option>
+            </select>
+            <select id="newModelSpeed" class="model-input">
+              <option value="fast">Fast</option>
+              <option value="medium">Medium</option>
+              <option value="slow">Slow</option>
+            </select>
+            <select id="newModelCapability" class="model-input">
+              <option value="basic">Basic (Simple tasks)</option>
+              <option value="moderate">Moderate (Analysis)</option>
+              <option value="advanced">Advanced (Complex reasoning)</option>
+            </select>
+          </div>
+          <button class="btn" style="margin-top: 12px;" onclick="addModel()">➕ Add Model</button>
+        </div>
+        
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+          <h4 style="margin-bottom: 10px; color: #888; font-size: 0.85rem;">🔗 Quick Setup</h4>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(16,185,129,0.3);" onclick="addPreset('ollama')">+ Ollama (localhost)</button>
+            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(99,102,241,0.3);" onclick="addPreset('lmstudio')">+ LM Studio</button>
+            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(245,158,11,0.3);" onclick="addPreset('groq')">+ Groq</button>
+            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(236,72,153,0.3);" onclick="addPreset('together')">+ Together.ai</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="main-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-icon">🌳</span>
+          <span class="panel-title">DAG Execution Graph</span>
+          <span class="model-badge model-sonnet" id="decomposerBadge" style="display:none;">SONNET</span>
+        </div>
+        <div class="dag-container" id="dagContainer">
+          <div class="empty-state">
+            <div class="empty-icon">🎯</div>
+            <div>Enter a task to see the execution DAG</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#666"></div> Pending</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Running</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Complete</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Error</div>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-icon">📊</span>
+          <span class="panel-title">Execution Logs</span>
+        </div>
+        <div class="logs" id="logs">
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <div>Logs will appear here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="stats" id="stats" style="display:none;">
+      <div class="stat-card">
+        <div class="stat-value" id="statSubtasks">0</div>
+        <div class="stat-label">Subtasks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statParallel">0</div>
+        <div class="stat-label">Parallel Levels</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statTokens">0</div>
+        <div class="stat-label">Total Tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statCost">$0.00</div>
+        <div class="stat-label">Est. Cost</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statTime">0s</div>
+        <div class="stat-label">Elapsed</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let taskId = null;
+    let pollInterval = null;
+    let startTime = null;
+    let logs = [];
+    let subtasks = [];
+    let executionLevels = [];
+    
+    // Default cloud models
+    const DEFAULT_MODELS = {
+      haiku: { id: 'haiku', name: 'Claude Haiku', endpoint: 'gateway', model: 'anthropic/claude-3-haiku', tier: 'cheap', speed: 'fast', capability: 'basic', type: 'cloud' },
+      sonnet: { id: 'sonnet', name: 'Claude Sonnet', endpoint: 'gateway', model: 'anthropic/claude-sonnet-4', tier: 'medium', speed: 'medium', capability: 'moderate', type: 'cloud' },
+      opus: { id: 'opus', name: 'Claude Opus', endpoint: 'gateway', model: 'anthropic/claude-opus-4', tier: 'expensive', speed: 'slow', capability: 'advanced', type: 'cloud' }
+    };
+    
+    // Load models from localStorage or use defaults
+    let models = JSON.parse(localStorage.getItem('orchestrator-models')) || { ...DEFAULT_MODELS };
+    
+    function saveModels() {
+      localStorage.setItem('orchestrator-models', JSON.stringify(models));
+      renderModelList();
+      updateModelSelects();
+    }
+    
+    function renderModelList() {
+      const container = document.getElementById('modelList');
+      const modelArray = Object.values(models);
+      
+      if (!modelArray.length) {
+        container.innerHTML = '<p style="color:#666; text-align:center; padding:20px;">No models configured</p>';
+        return;
+      }
+      
+      container.innerHTML = modelArray.map(m => `
+        <div class="model-card ${m.type || 'cloud'} ${m.enabled === false ? 'disabled' : ''}">
+          <div class="model-card-info">
+            <div class="model-card-name">${m.name}</div>
+            <div class="model-card-endpoint">${m.endpoint === 'gateway' ? '🌐 Via Gateway' : m.endpoint}</div>
+            <div class="model-card-tags">
+              <span class="model-card-tag ${m.tier === 'free' ? 'free' : ''}">${m.tier}</span>
+              <span class="model-card-tag ${m.speed === 'fast' ? 'fast' : ''}">${m.speed}</span>
+              <span class="model-card-tag">${m.capability}</span>
+              ${m.type === 'local' ? '<span class="model-card-tag free">LOCAL</span>' : ''}
+            </div>
+          </div>
+          <div class="model-card-actions">
+            <button class="model-card-btn" onclick="testModel('${m.id}')">🔗 Test</button>
+            <button class="model-card-btn" onclick="toggleModel('${m.id}')">${m.enabled === false ? '✓ Enable' : '⏸ Disable'}</button>
+            ${!DEFAULT_MODELS[m.id] ? `<button class="model-card-btn delete" onclick="deleteModel('${m.id}')">🗑</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function updateModelSelects() {
+      const select = document.getElementById('orchestratorModelId');
+      const enabledModels = Object.values(models).filter(m => m.enabled !== false);
+      
+      // Keep current selection if possible
+      const current = select.value;
+      
+      select.innerHTML = enabledModels.map(m => 
+        `<option value="${m.id}">${m.name} (${m.speed})</option>`
+      ).join('');
+      
+      if (enabledModels.find(m => m.id === current)) {
+        select.value = current;
+      }
+    }
+    
+    function toggleModelConfig() {
+      const panel = document.getElementById('modelConfigPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      if (panel.style.display === 'block') renderModelList();
+    }
+    
+    function addModel() {
+      const id = document.getElementById('newModelId').value.trim();
+      const name = document.getElementById('newModelName').value.trim();
+      const endpoint = document.getElementById('newModelEndpoint').value.trim();
+      const model = document.getElementById('newModelModel').value.trim();
+      const tier = document.getElementById('newModelTier').value;
+      const speed = document.getElementById('newModelSpeed').value;
+      const capability = document.getElementById('newModelCapability').value;
+      
+      if (!id || !name || !endpoint) {
+        alert('Please fill in ID, Name, and Endpoint');
+        return;
+      }
+      
+      models[id] = {
+        id, name, endpoint, model: model || id,
+        tier, speed, capability,
+        type: endpoint.includes('localhost') || endpoint.includes('127.0.0.1') ? 'local' : 'cloud',
+        enabled: true
+      };
+      
+      saveModels();
+      
+      // Clear form
+      ['newModelId', 'newModelName', 'newModelEndpoint', 'newModelModel'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      
+      addLog('system', null, `✅ Added model: ${name}`);
+    }
+    
+    function deleteModel(id) {
+      if (confirm(`Delete model "${models[id]?.name}"?`)) {
+        delete models[id];
+        saveModels();
+      }
+    }
+    
+    function toggleModel(id) {
+      if (models[id]) {
+        models[id].enabled = models[id].enabled === false ? true : false;
+        saveModels();
+      }
+    }
+    
+    async function testModel(id) {
+      const model = models[id];
+      if (!model) return;
+      
+      addLog('system', null, `🔗 Testing ${model.name}...`);
+      
+      try {
+        const endpoint = model.endpoint === 'gateway' 
+          ? '/api/health'
+          : `${model.endpoint}/models`;
+        
+        const res = await fetch(endpoint, { timeout: 5000 });
+        if (res.ok) {
+          addLog('system', null, `✅ ${model.name} is reachable!`);
+        } else {
+          addLog('system', null, `⚠️ ${model.name} returned ${res.status}`);
+        }
+      } catch (err) {
+        addLog('system', null, `❌ ${model.name} unreachable: ${err.message}`);
+      }
+    }
+    
+    function addPreset(type) {
+      const presets = {
+        ollama: { id: 'ollama-llama3', name: 'Llama 3 (Ollama)', endpoint: 'http://localhost:11434/v1', model: 'llama3', tier: 'free', speed: 'medium', capability: 'moderate' },
+        lmstudio: { id: 'lmstudio', name: 'LM Studio', endpoint: 'http://localhost:1234/v1', model: 'local-model', tier: 'free', speed: 'medium', capability: 'moderate' },
+        groq: { id: 'groq-llama', name: 'Groq Llama 3', endpoint: 'https://api.groq.com/openai/v1', model: 'llama3-70b-8192', tier: 'cheap', speed: 'fast', capability: 'advanced' },
+        together: { id: 'together-mistral', name: 'Together Mistral', endpoint: 'https://api.together.xyz/v1', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1', tier: 'cheap', speed: 'fast', capability: 'moderate' }
+      };
+      
+      const preset = presets[type];
+      if (preset) {
+        models[preset.id] = { ...preset, type: preset.endpoint.includes('localhost') ? 'local' : 'cloud', enabled: true };
+        saveModels();
+        addLog('system', null, `✅ Added preset: ${preset.name}`);
+      }
+    }
+    
+    // Initialize
+    renderModelList();
+    updateModelSelects();
+    
+    // Dynamic model colors/names based on configured models
+    function getModelColor(id) {
+      const tierColors = { free: 'model-haiku', cheap: 'model-haiku', medium: 'model-sonnet', expensive: 'model-opus' };
+      return tierColors[models[id]?.tier] || 'model-sonnet';
+    }
+    
+    function getModelName(id) {
+      return models[id]?.name?.toUpperCase() || id.toUpperCase();
+    }
+    
+    // Legacy support
+    const MODEL_COLORS = new Proxy({}, { get: (_, id) => getModelColor(id) });
+    const MODEL_NAMES = new Proxy({}, { get: (_, id) => getModelName(id) });
+    const COMPLEXITY_CLASSES = { low: 'complexity-low', medium: 'complexity-medium', high: 'complexity-high' };
+    
+    function addLog(type, model, message) {
+      logs.push({ time: new Date().toLocaleTimeString(), type, model, message });
+      renderLogs();
+    }
+    
+    function renderLogs() {
+      const el = document.getElementById('logs');
+      if (!logs.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div>Logs will appear here</div></div>';
+        return;
+      }
+      el.innerHTML = logs.map(l => `
+        <div class="log-entry ${l.type}">
+          <span class="log-time">${l.time}</span>
+          ${l.model ? `<span class="log-model ${MODEL_COLORS[l.model]}">${MODEL_NAMES[l.model]}</span>` : ''}
+          <span class="log-msg">${l.message}</span>
+        </div>
+      `).join('');
+      el.scrollTop = el.scrollHeight;
+    }
+    
+    function renderDAG() {
+      const container = document.getElementById('dagContainer');
+      
+      if (!executionLevels.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div>Enter a task to see the execution DAG</div></div>';
+        return;
+      }
+      
+      const subtaskMap = {};
+      subtasks.forEach(st => subtaskMap[st.id] = st);
+      
+      let html = '';
+      executionLevels.forEach((levelIds, levelIdx) => {
+        const levelSubtasks = levelIds.map(id => subtaskMap[id]).filter(Boolean);
+        const isLastLevel = levelIdx === executionLevels.length - 1;
+        
+        html += `
+          <div class="execution-level">
+            <span class="level-label">L${levelIdx + 1} ${levelSubtasks.length > 1 ? '⚡ parallel' : ''}</span>
+            ${levelSubtasks.map(st => `
+              <div class="subtask-card ${st.status}" id="card-${st.id}">
+                <div class="subtask-header">
+                  <div class="subtask-status"></div>
+                  <span class="subtask-id">${st.id}</span>
+                  <span class="subtask-model ${MODEL_COLORS[st.model]}">${MODEL_NAMES[st.model]}</span>
+                </div>
+                <div class="subtask-name">${st.name}</div>
+                <div class="subtask-meta">
+                  <span>${st.complexity || 'auto'}</span>
+                  <div class="complexity-bar">
+                    <div class="complexity-fill ${COMPLEXITY_CLASSES[st.complexity] || 'complexity-medium'}" 
+                         style="width: ${(st.complexityScore || 5) * 10}%"></div>
+                  </div>
+                  ${st.tokens ? `<span>${st.tokens} tok</span>` : ''}
+                </div>
+                ${st.dependsOn?.length ? `<div class="subtask-deps">← depends on: ${st.dependsOn.join(', ')}</div>` : ''}
+                ${st.result ? `<div class="subtask-result">${st.result}</div>` : ''}
+              </div>
+            `).join('')}
+            ${!isLastLevel ? '<div class="level-connector"></div>' : ''}
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    function updateStats(data = {}) {
+      if (!startTime) return;
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('statTime').textContent = `${elapsed}s`;
+      document.getElementById('statSubtasks').textContent = subtasks.length;
+      document.getElementById('statParallel').textContent = executionLevels.length;
+      
+      const totalTokens = data.totalTokens || subtasks.reduce((sum, st) => sum + (st.tokens || 0), 0);
+      document.getElementById('statTokens').textContent = totalTokens.toLocaleString();
+      
+      // Cost estimation
+      const costPerMToken = { haiku: 0.25, sonnet: 3, opus: 15 };
+      let cost = 0;
+      subtasks.forEach(st => {
+        cost += ((st.tokens || 300) / 1000000) * (costPerMToken[st.model] || 1);
+      });
+      document.getElementById('statCost').textContent = `$${cost.toFixed(4)}`;
+    }
+    
+    async function runDecomposition() {
+      const task = document.getElementById('taskInput').value.trim();
+      if (!task) return alert('Please enter a task');
+      
+      const orchestratorModelId = document.getElementById('orchestratorModelId').value;
+      const strategy = document.getElementById('routingStrategy').value;
+      
+      logs = [];
+      subtasks = [];
+      executionLevels = [];
+      startTime = Date.now();
+      
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('stats').style.display = 'grid';
+      
+      const badge = document.getElementById('decomposerBadge');
+      badge.style.display = 'inline';
+      badge.className = `model-badge ${MODEL_COLORS[orchestratorModelId]}`;
+      badge.textContent = MODEL_NAMES[orchestratorModelId];
+      
+      addLog('system', null, '🚀 Starting DAG decomposition...');
+      addLog('orchestrator', orchestratorModelId, 'Analyzing task and building dependency graph...');
+      
+      renderDAG();
+      const statsInterval = setInterval(() => updateStats(), 1000);
+      
+      try {
+        const response = await fetch('/api/orchestrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task, orchestratorModelId, strategy })
+        });
+        
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        taskId = data.taskId;
+        subtasks = data.subtasks;
+        executionLevels = data.executionLevels || [];
+        
+        const parallelCount = executionLevels.filter(l => l.length > 1).length;
+        addLog('orchestrator', orchestratorModelId, `Decomposed into ${subtasks.length} subtasks across ${executionLevels.length} levels (${parallelCount} parallel)`);
+        
+        if (data.baseComplexity) {
+          addLog('system', null, `📊 Base complexity score: ${data.baseComplexity.toFixed(1)}/10`);
+        }
+        
+        renderDAG();
+        
+        // Poll for updates
+        pollInterval = setInterval(async () => {
+          try {
+            const status = await fetch(`/api/orchestrate/status/${taskId}`).then(r => r.json());
+            
+            if (status.subtasks) {
+              status.subtasks.forEach((st, i) => {
+                const prev = subtasks[i];
+                if (prev && prev.status !== st.status) {
+                  if (st.status === 'running') {
+                    const levelIdx = executionLevels.findIndex(l => l.includes(st.id));
+                    const isParallel = executionLevels[levelIdx]?.length > 1;
+                    addLog(isParallel ? 'parallel' : 'subagent', st.model, 
+                           `${isParallel ? '⚡' : '▶️'} ${st.name}`);
+                  } else if (st.status === 'complete') {
+                    addLog('subagent', st.model, `✅ ${st.name} (${st.tokens || '?'} tokens)`);
+                  } else if (st.status === 'error') {
+                    addLog('subagent', st.model, `❌ ${st.name}`);
+                  }
+                }
+                subtasks[i] = { ...subtasks[i], ...st };
+              });
+              renderDAG();
+              updateStats(status);
+            }
+            
+            if (status.complete) {
+              clearInterval(pollInterval);
+              clearInterval(statsInterval);
+              addLog('system', null, `🎉 Complete! ${status.totalTokens || 0} total tokens`);
+              document.getElementById('runBtn').disabled = false;
+            }
+          } catch (err) {
+            console.error('Poll error:', err);
+          }
+        }, 800);
+        
+      } catch (err) {
+        addLog('system', null, `❌ Error: ${err.message}`);
+        document.getElementById('runBtn').disabled = false;
+        clearInterval(statsInterval);
+      }
+    }
+    
+    document.getElementById('runBtn').onclick = runDecomposition;
+    document.getElementById('taskInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.metaKey) runDecomposition();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+{
+  "models": {
+    "openai-gpt4": {
+      "id": "openai-gpt4",
+      "name": "GPT-4",
+      "endpoint": "https://api.openai.com/v1",
+      "model": "gpt-4-turbo-preview",
+      "apiKey": "${OPENAI_API_KEY}",
+      "tier": "expensive",
+      "speed": "medium",
+      "capability": "advanced",
+      "type": "cloud",
+      "enabled": false
+    },
+    "openai-gpt35": {
+      "id": "openai-gpt35",
+      "name": "GPT-3.5 Turbo",
+      "endpoint": "https://api.openai.com/v1",
+      "model": "gpt-3.5-turbo",
+      "apiKey": "${OPENAI_API_KEY}",
+      "tier": "cheap",
+      "speed": "fast",
+      "capability": "basic",
+      "type": "cloud",
+      "enabled": false
+    },
+    "anthropic-opus": {
+      "id": "anthropic-opus",
+      "name": "Claude Opus",
+      "endpoint": "https://api.anthropic.com/v1",
+      "model": "claude-opus-4",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "tier": "expensive",
+      "speed": "slow",
+      "capability": "advanced",
+      "type": "cloud",
+      "enabled": false
+    },
+    "anthropic-sonnet": {
+      "id": "anthropic-sonnet",
+      "name": "Claude Sonnet",
+      "endpoint": "https://api.anthropic.com/v1",
+      "model": "claude-sonnet-4",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "tier": "medium",
+      "speed": "medium",
+      "capability": "moderate",
+      "type": "cloud",
+      "enabled": false
+    },
+    "anthropic-haiku": {
+      "id": "anthropic-haiku",
+      "name": "Claude Haiku",
+      "endpoint": "https://api.anthropic.com/v1",
+      "model": "claude-3-haiku",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "tier": "cheap",
+      "speed": "fast",
+      "capability": "basic",
+      "type": "cloud",
+      "enabled": false
+    },
+    "ollama-llama3": {
+      "id": "ollama-llama3",
+      "name": "Llama 3 (Ollama)",
+      "endpoint": "http://localhost:11434/v1",
+      "model": "llama3",
+      "tier": "free",
+      "speed": "medium",
+      "capability": "moderate",
+      "type": "local",
+      "enabled": true
+    },
+    "ollama-mistral": {
+      "id": "ollama-mistral",
+      "name": "Mistral (Ollama)",
+      "endpoint": "http://localhost:11434/v1",
+      "model": "mistral",
+      "tier": "free",
+      "speed": "fast",
+      "capability": "basic",
+      "type": "local",
+      "enabled": true
+    },
+    "lmstudio": {
+      "id": "lmstudio",
+      "name": "LM Studio Local",
+      "endpoint": "http://localhost:1234/v1",
+      "model": "local-model",
+      "tier": "free",
+      "speed": "medium",
+      "capability": "moderate",
+      "type": "local",
+      "enabled": false
+    },
+    "groq-llama": {
+      "id": "groq-llama",
+      "name": "Groq Llama 3 70B",
+      "endpoint": "https://api.groq.com/openai/v1",
+      "model": "llama3-70b-8192",
+      "apiKey": "${GROQ_API_KEY}",
+      "tier": "cheap",
+      "speed": "fast",
+      "capability": "advanced",
+      "type": "cloud",
+      "enabled": false
+    },
+    "together-mixtral": {
+      "id": "together-mixtral",
+      "name": "Together Mixtral",
+      "endpoint": "https://api.together.xyz/v1",
+      "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+      "apiKey": "${TOGETHER_API_KEY}",
+      "tier": "cheap",
+      "speed": "fast",
+      "capability": "moderate",
+      "type": "cloud",
+      "enabled": false
+    }
+  },
+  "defaultModel": "ollama-llama3",
+  "defaultStrategy": "auto"
+}
