@@ -60,22 +60,22 @@
       "type": "cloud",
       "enabled": false
     },
-    "ollama-llama3": {
-      "id": "ollama-llama3",
-      "name": "Llama 3 (Ollama)",
+    "ollama-gemma2": {
+      "id": "ollama-gemma2",
+      "name": "Gemma 2 2B (Ollama)",
       "endpoint": "http://localhost:11434/v1",
-      "model": "llama3",
+      "model": "gemma2:2b",
       "tier": "free",
-      "speed": "medium",
+      "speed": "fast",
       "capability": "moderate",
       "type": "local",
       "enabled": true
     },
-    "ollama-mistral": {
-      "id": "ollama-mistral",
-      "name": "Mistral (Ollama)",
+    "ollama-tinyllama": {
+      "id": "ollama-tinyllama",
+      "name": "TinyLlama (Ollama)",
       "endpoint": "http://localhost:11434/v1",
-      "model": "mistral",
+      "model": "tinyllama",
       "tier": "free",
       "speed": "fast",
       "capability": "basic",
@@ -118,6 +118,6 @@
       "enabled": false
     }
   },
-  "defaultModel": "ollama-llama3",
+  "defaultModel": "ollama-gemma2",
   "defaultStrategy": "auto"
 }

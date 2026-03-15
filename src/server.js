@@ -2,14 +2,17 @@
 /**
  * LLM Orchestrator Server
  * Multi-model task decomposition with DAG-based parallel execution
+ * + Domain-specific handlers (code intelligence, etc.)
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { DomainRouter } = require('./core/domain-router');
 
 // Configuration
 const PORT = process.env.PORT || 3000;
+const REPO_PATH = process.env.REPO_PATH || process.cwd();
 const CONFIG_PATH = process.env.CONFIG_PATH || path.join(__dirname, '../config/models.json');
 
 // Load model configurations
@@ -230,6 +233,21 @@ async function executeTask(taskId) {
   task.totalTokens = totalTokens;
 }
 
+// ============ DOMAIN ROUTER ============
+
+// Helper to select model for domains
+const domainSelectModel = (complexity, strategy = 'auto') => {
+  return selectModel(complexity, strategy, models);
+};
+
+// Initialize domain router
+const domainRouter = new DomainRouter({
+  repoPath: REPO_PATH,
+  memoryDir: path.join(REPO_PATH, '.code-memory'),
+  callModel: callModel,
+  selectModel: domainSelectModel
+});
+
 // ============ HTTP SERVER ============
 
 const MIME_TYPES = {
@@ -259,7 +277,12 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', models: Object.keys(models).length }));
+    res.end(JSON.stringify({ 
+      status: 'ok', 
+      models: Object.keys(models).length,
+      domains: domainRouter.listDomains(),
+      repoPath: REPO_PATH
+    }));
     return;
   }
   
@@ -302,17 +325,57 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   
+  // Domain stats
+  if (url === '/api/domains' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ 
+      domains: domainRouter.listDomains(),
+      stats: domainRouter.getStats()
+    }));
+    return;
+  }
+  
+  // Code memory search
+  if (url === '/api/code/search' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      const { query } = JSON.parse(body);
+      const codeDomain = domainRouter.getDomain('code-intelligence');
+      const results = codeDomain ? codeDomain.search(query) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(results));
+    });
+    return;
+  }
+  
   // Start orchestration
   if (url === '/api/orchestrate' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { task, orchestratorModelId, strategy } = JSON.parse(body);
+        const { task, orchestratorModelId, strategy, forceDomain } = JSON.parse(body);
         const taskId = `task-${Date.now()}`;
         const baseComplexity = scoreComplexity(task);
         
-        // Select orchestrator model
+        // Check if a domain should handle this
+        const detectedDomain = forceDomain || domainRouter.detect(task);
+        if (detectedDomain) {
+          const domainResult = await domainRouter.route(task, { strategy });
+          if (domainResult.result) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              taskId,
+              domain: domainResult.domain,
+              ...domainResult.result,
+              baseComplexity
+            }));
+            return;
+          }
+        }
+        
+        // Fallback to general DAG orchestration
         const orchestratorModel = models[orchestratorModelId] || Object.values(models)[0];
         if (!orchestratorModel) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
