@@ -138,6 +138,85 @@
       position: relative;
     }
     
+    /* Graph View Toggle */
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      background: rgba(0,0,0,0.3);
+      padding: 4px;
+      border-radius: 8px;
+      margin-left: auto;
+    }
+    
+    .view-btn {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: #888;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s;
+    }
+    
+    .view-btn.active {
+      background: rgba(123, 47, 255, 0.3);
+      color: #fff;
+    }
+    
+    .view-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.1);
+    }
+    
+    /* Canvas Graph */
+    .graph-canvas-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    #dagCanvas {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .graph-tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(123, 47, 255, 0.5);
+      border-radius: 8px;
+      padding: 12px;
+      max-width: 300px;
+      font-size: 0.8rem;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+    
+    .graph-tooltip.visible { display: block; }
+    
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    
+    .tooltip-meta {
+      color: #888;
+      font-size: 0.7rem;
+      margin-bottom: 8px;
+    }
+    
+    .tooltip-result {
+      color: #aaa;
+      line-height: 1.4;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
     .execution-level {
       display: flex;
       gap: 12px;
@@ -432,7 +511,7 @@
       <textarea class="task-input" id="taskInput" placeholder="Enter a complex task to decompose...&#10;&#10;Example: Create a comprehensive market analysis report for electric vehicles including competitor analysis, market trends, and future predictions."></textarea>
       <div class="controls">
         <label style="color: #888; font-size: 0.8rem;">Orchestrator:</label>
-        <select class="model-select" id="orchestratorModelId">
+        <select class="model-select" id="orchestratorModel">
           <option value="haiku">Haiku (Fast)</option>
           <option value="sonnet" selected>Sonnet (Balanced)</option>
           <option value="opus">Opus (Quality)</option>
@@ -506,11 +585,23 @@
           <span class="panel-icon">🌳</span>
           <span class="panel-title">DAG Execution Graph</span>
           <span class="model-badge model-sonnet" id="decomposerBadge" style="display:none;">SONNET</span>
+          <div class="view-toggle">
+            <button class="view-btn active" id="viewLevels" onclick="setView('levels')">📊 Levels</button>
+            <button class="view-btn" id="viewGraph" onclick="setView('graph')">🔗 Graph</button>
+          </div>
         </div>
         <div class="dag-container" id="dagContainer">
           <div class="empty-state">
             <div class="empty-icon">🎯</div>
             <div>Enter a task to see the execution DAG</div>
+          </div>
+        </div>
+        <div class="graph-canvas-container" id="graphContainer" style="display: none;">
+          <canvas id="dagCanvas"></canvas>
+          <div class="graph-tooltip" id="graphTooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-meta"></div>
+            <div class="tooltip-result"></div>
           </div>
         </div>
         <div class="legend">
@@ -614,7 +705,7 @@
     }
     
     function updateModelSelects() {
-      const select = document.getElementById('orchestratorModelId');
+      const select = document.getElementById('orchestratorModel');
       const enabledModels = Object.values(models).filter(m => m.enabled !== false);
       
       // Keep current selection if possible
@@ -688,7 +779,7 @@
       
       try {
         const endpoint = model.endpoint === 'gateway' 
-          ? '/api/health'
+          ? '/api/orchestrate/health'
           : `${model.endpoint}/models`;
         
         const res = await fetch(endpoint, { timeout: 5000 });
@@ -828,7 +919,7 @@
       const task = document.getElementById('taskInput').value.trim();
       if (!task) return alert('Please enter a task');
       
-      const orchestratorModelId = document.getElementById('orchestratorModelId').value;
+      const orchestratorModel = document.getElementById('orchestratorModel').value;
       const strategy = document.getElementById('routingStrategy').value;
       
       logs = [];
@@ -841,11 +932,11 @@
       
       const badge = document.getElementById('decomposerBadge');
       badge.style.display = 'inline';
-      badge.className = `model-badge ${MODEL_COLORS[orchestratorModelId]}`;
-      badge.textContent = MODEL_NAMES[orchestratorModelId];
+      badge.className = `model-badge ${MODEL_COLORS[orchestratorModel]}`;
+      badge.textContent = MODEL_NAMES[orchestratorModel];
       
       addLog('system', null, '🚀 Starting DAG decomposition...');
-      addLog('orchestrator', orchestratorModelId, 'Analyzing task and building dependency graph...');
+      addLog('orchestrator', orchestratorModel, 'Analyzing task and building dependency graph...');
       
       renderDAG();
       const statsInterval = setInterval(() => updateStats(), 1000);
@@ -854,7 +945,7 @@
         const response = await fetch('/api/orchestrate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task, orchestratorModelId, strategy })
+          body: JSON.stringify({ task, orchestratorModel, strategy })
         });
         
         const data = await response.json();
@@ -865,7 +956,7 @@
         executionLevels = data.executionLevels || [];
         
         const parallelCount = executionLevels.filter(l => l.length > 1).length;
-        addLog('orchestrator', orchestratorModelId, `Decomposed into ${subtasks.length} subtasks across ${executionLevels.length} levels (${parallelCount} parallel)`);
+        addLog('orchestrator', orchestratorModel, `Decomposed into ${subtasks.length} subtasks across ${executionLevels.length} levels (${parallelCount} parallel)`);
         
         if (data.baseComplexity) {
           addLog('system', null, `📊 Base complexity score: ${data.baseComplexity.toFixed(1)}/10`);
@@ -921,6 +1012,226 @@
     document.getElementById('taskInput').addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.metaKey) runDecomposition();
     });
+    
+    // ============ GRAPH VIEW ============
+    
+    let currentView = 'levels';
+    let nodePositions = {};
+    let hoveredNode = null;
+    
+    function setView(view) {
+      currentView = view;
+      document.getElementById('viewLevels').classList.toggle('active', view === 'levels');
+      document.getElementById('viewGraph').classList.toggle('active', view === 'graph');
+      document.getElementById('dagContainer').style.display = view === 'levels' ? 'block' : 'none';
+      document.getElementById('graphContainer').style.display = view === 'graph' ? 'block' : 'none';
+      
+      if (view === 'graph' && subtasks.length) {
+        renderGraph();
+      }
+    }
+    
+    function renderGraph() {
+      const canvas = document.getElementById('dagCanvas');
+      const container = document.getElementById('graphContainer');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas size
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      
+      const width = rect.width;
+      const height = rect.height;
+      
+      // Calculate node positions based on execution levels
+      nodePositions = {};
+      const subtaskMap = {};
+      subtasks.forEach(st => subtaskMap[st.id] = st);
+      
+      const levelSpacing = width / (executionLevels.length + 1);
+      
+      executionLevels.forEach((levelIds, levelIdx) => {
+        const nodeSpacing = height / (levelIds.length + 1);
+        levelIds.forEach((id, nodeIdx) => {
+          nodePositions[id] = {
+            x: levelSpacing * (levelIdx + 1),
+            y: nodeSpacing * (nodeIdx + 1),
+            subtask: subtaskMap[id]
+          };
+        });
+      });
+      
+      // Clear canvas
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      
+      // Draw edges first
+      subtasks.forEach(st => {
+        const to = nodePositions[st.id];
+        if (!to) return;
+        
+        (st.dependsOn || []).forEach(depId => {
+          const from = nodePositions[depId];
+          if (!from) return;
+          
+          // Draw curved edge
+          ctx.beginPath();
+          ctx.strokeStyle = st.status === 'complete' ? 'rgba(16, 185, 129, 0.6)' : 
+                           st.status === 'running' ? 'rgba(245, 158, 11, 0.6)' : 
+                           'rgba(123, 47, 255, 0.4)';
+          ctx.lineWidth = 2;
+          
+          const midX = (from.x + to.x) / 2;
+          ctx.moveTo(from.x, from.y);
+          ctx.bezierCurveTo(midX, from.y, midX, to.y, to.x, to.y);
+          ctx.stroke();
+          
+          // Draw arrow
+          const angle = Math.atan2(to.y - from.y, to.x - midX);
+          const arrowSize = 8;
+          ctx.beginPath();
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.moveTo(to.x - 25, to.y);
+          ctx.lineTo(to.x - 25 - arrowSize * Math.cos(angle - Math.PI/6), to.y - arrowSize * Math.sin(angle - Math.PI/6));
+          ctx.lineTo(to.x - 25 - arrowSize * Math.cos(angle + Math.PI/6), to.y - arrowSize * Math.sin(angle + Math.PI/6));
+          ctx.closePath();
+          ctx.fill();
+        });
+      });
+      
+      // Draw nodes
+      const nodeRadius = 25;
+      Object.entries(nodePositions).forEach(([id, pos]) => {
+        const st = pos.subtask;
+        if (!st) return;
+        
+        const isHovered = hoveredNode === id;
+        const scale = isHovered ? 1.15 : 1;
+        const r = nodeRadius * scale;
+        
+        // Node shadow
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r + 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fill();
+        
+        // Node fill
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+        
+        const statusColors = {
+          pending: '#333',
+          running: '#f59e0b',
+          complete: '#10b981',
+          error: '#ef4444'
+        };
+        ctx.fillStyle = statusColors[st.status] || '#333';
+        ctx.fill();
+        
+        // Node border
+        ctx.strokeStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = isHovered ? 3 : 2;
+        ctx.stroke();
+        
+        // Node label
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${12 * scale}px "SF Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(st.id.toUpperCase(), pos.x, pos.y);
+        
+        // Model badge
+        const modelColors = { haiku: '#10b981', sonnet: '#6366f1', opus: '#ec4899' };
+        ctx.fillStyle = modelColors[st.model] || '#666';
+        ctx.font = `9px "SF Mono", monospace`;
+        ctx.fillText(st.model?.toUpperCase() || '', pos.x, pos.y + r + 12);
+      });
+      
+      // Level labels
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.font = '10px "SF Mono", monospace';
+      ctx.textAlign = 'center';
+      executionLevels.forEach((_, idx) => {
+        const x = levelSpacing * (idx + 1);
+        ctx.fillText(`LEVEL ${idx + 1}`, x, 20);
+      });
+    }
+    
+    // Mouse interaction for graph
+    const canvas = document.getElementById('dagCanvas');
+    const tooltip = document.getElementById('graphTooltip');
+    
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      let found = null;
+      Object.entries(nodePositions).forEach(([id, pos]) => {
+        const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+        if (dist < 30) found = id;
+      });
+      
+      if (found !== hoveredNode) {
+        hoveredNode = found;
+        renderGraph();
+        
+        if (found && nodePositions[found]) {
+          const st = nodePositions[found].subtask;
+          tooltip.querySelector('.tooltip-title').textContent = `${st.id}: ${st.name}`;
+          tooltip.querySelector('.tooltip-meta').textContent = 
+            `Model: ${st.model} | Status: ${st.status} | Complexity: ${st.complexity}`;
+          tooltip.querySelector('.tooltip-result').textContent = st.result || 'Pending...';
+          tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+          tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+          tooltip.classList.add('visible');
+        } else {
+          tooltip.classList.remove('visible');
+        }
+      }
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      hoveredNode = null;
+      tooltip.classList.remove('visible');
+      renderGraph();
+    });
+    
+    // Redraw on window resize
+    window.addEventListener('resize', () => {
+      if (currentView === 'graph' && subtasks.length) {
+        renderGraph();
+      }
+    });
+    
+    // Update renderDAG to also update graph
+    const originalRenderDAG = renderDAG;
+    renderDAG = function() {
+      originalRenderDAG();
+      if (currentView === 'graph') {
+        renderGraph();
+      }
+    };
   </script>
 </body>
 </html>
