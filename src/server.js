@@ -5,6 +5,14 @@
  * + Domain-specific handlers (code intelligence, etc.)
  */
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.message);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -359,19 +367,27 @@ const server = http.createServer(async (req, res) => {
         const taskId = `task-${Date.now()}`;
         const baseComplexity = scoreComplexity(task);
         
-        // Check if a domain should handle this
-        const detectedDomain = forceDomain || domainRouter.detect(task);
-        if (detectedDomain) {
-          const domainResult = await domainRouter.route(task, { strategy });
-          if (domainResult.result) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              taskId,
-              domain: domainResult.domain,
-              ...domainResult.result,
-              baseComplexity
-            }));
-            return;
+        // Check if a domain should handle this (disabled by default for standalone)
+        const useDomains = process.env.ENABLE_DOMAINS === 'true';
+        if (useDomains) {
+          const detectedDomain = forceDomain || domainRouter.detect(task);
+          if (detectedDomain && detectedDomain !== 'none') {
+            try {
+              const domainResult = await domainRouter.route(task, { strategy });
+              if (domainResult.result) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  taskId,
+                  domain: domainResult.domain,
+                  ...domainResult.result,
+                  baseComplexity
+                }));
+                return;
+              }
+            } catch (domainErr) {
+              console.error('Domain routing error:', domainErr.message);
+              // Fall through to general orchestration
+            }
           }
         }
         
