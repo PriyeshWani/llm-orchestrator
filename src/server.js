@@ -478,6 +478,83 @@ Task: ${task}`;
     return;
   }
   
+  // ===== Workspace API =====
+  
+  // List directory
+  if (url === '/api/workspace/tree') {
+    const query = new URLSearchParams(req.url.split('?')[1] || '');
+    const dirPath = query.get('path') || REPO_PATH;
+    
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const tree = entries
+        .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
+        .map(e => ({
+          name: e.name,
+          type: e.isDirectory() ? 'directory' : 'file',
+          path: path.join(dirPath, e.name)
+        }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tree }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  
+  // Read file
+  if (url === '/api/workspace/file' && req.method === 'GET') {
+    const query = new URLSearchParams(req.url.split('?')[1] || '');
+    const filePath = query.get('path');
+    
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'path required' }));
+      return;
+    }
+    
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  
+  // Write file
+  if (url === '/api/workspace/file' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { path: filePath, content } = JSON.parse(body);
+        if (!filePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'path required' }));
+          return;
+        }
+        
+        // Create directory if needed
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        fs.writeFileSync(filePath, content || '');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+  
   // ===== Static Files =====
   let filePath = url === '/' ? '/index.html' : url;
   const fullPath = path.join(__dirname, 'public', filePath);

@@ -1,232 +1,264 @@
 # 🧠 LLM Orchestrator
 
-Multi-model LLM task orchestrator with DAG-based decomposition, parallel execution, and **agentic code intelligence**.
+Multi-model LLM orchestrator with DAG-based task decomposition and intelligent model routing.
+
+Break down complex tasks into subtasks, route each to the optimal model (cheap/fast vs expensive/quality), execute in parallel where possible, and combine results.
+
+![Orchestrator UI](https://img.shields.io/badge/UI-Interactive-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
 
-- **Multi-Model Support**: Use any OpenAI-compatible API (OpenAI, Anthropic, Ollama, Groq, Together, etc.)
-- **Intelligent Routing**: Auto-select models based on task complexity
-- **DAG Decomposition**: Break complex tasks into subtasks with dependencies
-- **Parallel Execution**: Run independent subtasks simultaneously
-- **Domain Routing**: Specialized handlers for code, research, and writing tasks
-- **Code Intelligence**: Agentic codebase exploration with persistent memory graph
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER REQUEST                             │
-└─────────────────────────────┬───────────────────────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DOMAIN ROUTER                              │
-│  Detects: code | research | writing | general                  │
-└─────────────────────────────┬───────────────────────────────────┘
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ Code Intelligence│ │    Research     │ │    Writing      │
-│                 │ │                 │ │                 │
-│ • Memory Graph  │ │ • Web Search    │ │ • Outline Plan  │
-│ • File Explorer │ │ • Multi-source  │ │ • Section Gen   │
-│ • Caching       │ │ • Synthesis     │ │ • Tone Control  │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-          │                   │                   │
-          └───────────────────┼───────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              GENERAL DAG ORCHESTRATION                          │
-│  (Falls back here for complex multi-step tasks)                │
-│                                                                 │
-│  Task → Decompose → Parallel Execute → Synthesize              │
-└─────────────────────────────────────────────────────────────────┘
-```
+- **Task Decomposition** - Automatically breaks complex tasks into subtasks
+- **DAG Execution** - Parallel execution with dependency management
+- **Smart Routing** - Routes subtasks to optimal models based on complexity
+- **Multi-Provider** - OpenAI, Anthropic, Ollama, Groq, Together, LM Studio
+- **Visual DAG** - Interactive graph view of task execution
+- **Workspace Integration** - Browse files, save outputs
+- **Domain Routing** - Specialized handlers for code, research, writing
 
 ## Quick Start
 
-### 1. Clone and Install
+### Option 1: Local (Ollama - Free)
+
+```bash
+# 1. Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull gemma2:2b
+ollama serve
+
+# 2. Clone and run
+git clone https://github.com/PriyeshWani/llm-orchestrator.git
+cd llm-orchestrator
+npm install
+npm start
+
+# 3. Open http://localhost:3000
+```
+
+### Option 2: With API Keys (Cloud Models)
 
 ```bash
 git clone https://github.com/PriyeshWani/llm-orchestrator.git
 cd llm-orchestrator
 npm install
+
+# Create .env file
+cp .env.example .env
+# Edit .env with your API keys
+
+npm start
 ```
 
-### 2. Configure Models
+### Option 3: Docker
 
-Edit `config/models.json` to enable your preferred models:
+```bash
+git clone https://github.com/PriyeshWani/llm-orchestrator.git
+cd llm-orchestrator
+docker build -t llm-orchestrator .
+docker run -p 3000:3000 --env-file .env llm-orchestrator
+```
+
+## Configuration
+
+### Model Configuration (`config/models.json`)
 
 ```json
 {
   "models": {
     "ollama-gemma2": {
       "id": "ollama-gemma2",
-      "name": "Gemma 2 (Local)",
+      "name": "Gemma 2 (Ollama)",
       "endpoint": "http://localhost:11434/v1",
       "model": "gemma2:2b",
       "tier": "free",
+      "speed": "fast",
       "capability": "moderate",
       "type": "local",
       "enabled": true
+    },
+    "anthropic-haiku": {
+      "id": "anthropic-haiku",
+      "name": "Claude Haiku",
+      "endpoint": "https://api.anthropic.com/v1",
+      "model": "claude-3-haiku-20240307",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "tier": "cheap",
+      "speed": "fast",
+      "capability": "basic",
+      "type": "cloud",
+      "enabled": true
     }
-  }
+  },
+  "defaultModel": "ollama-gemma2",
+  "defaultStrategy": "auto"
 }
-```
-
-### 3. Run
-
-```bash
-# Point to your codebase for code intelligence
-export REPO_PATH=/path/to/your/codebase
-
-# Start the server
-npm start
-
-# Open http://localhost:3000
-```
-
-### 4. With Docker
-
-```bash
-docker compose up -d
-```
-
-## Code Intelligence
-
-The code intelligence domain provides agentic codebase exploration:
-
-### How It Works
-
-1. **Request Classification**: Detects code-related questions
-2. **Memory Check**: Looks for cached knowledge in the graph
-3. **Exploration**: Scans directories, reads files, generates summaries
-4. **Caching**: Stores knowledge for future queries
-5. **Synthesis**: Combines cached + new knowledge to answer
-
-### API Endpoints
-
-```bash
-# Ask about code
-curl -X POST http://localhost:3000/api/orchestrate \
-  -H "Content-Type: application/json" \
-  -d '{"task": "Explain the authentication system"}'
-
-# Search code memory
-curl -X POST http://localhost:3000/api/code/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "auth"}'
-
-# Get memory stats
-curl http://localhost:3000/api/domains
-```
-
-### Memory Graph
-
-Knowledge is persisted in `.code-memory/` in your repo:
-
-```
-.code-memory/
-├── graph.json      # Nodes (files, functions, classes) and edges
-└── summaries.json  # Cached file/module summaries
-```
-
-## Project Structure
-
-```
-src/
-├── server.js              # Main HTTP server
-├── core/
-│   └── domain-router.js   # Routes to specialized domains
-├── domains/
-│   ├── code-intelligence/ # Codebase exploration + memory
-│   ├── research/          # Web research + synthesis
-│   └── writing/           # Long-form content generation
-└── mcp/
-    └── code-memory.js     # Persistent knowledge graph
-```
-
-## Domains
-
-### Code Intelligence
-**Triggers**: code, function, class, file, .js, .py, refactor, debug, explain
-
-- Explores codebase structure
-- Caches file summaries in memory graph
-- Answers questions using cached + live exploration
-
-### Research
-**Triggers**: research, compare, statistics, news, find out
-
-- Generates search queries
-- Multi-source synthesis
-- (Requires search API integration for web results)
-
-### Writing
-**Triggers**: write, draft, blog, email, edit, summarize
-
-- Outline planning for long-form
-- Section-by-section generation
-- Tone and style control
-
-## Configuration
-
-### Environment Variables
-
-```bash
-PORT=3000                    # Server port
-REPO_PATH=/path/to/code      # Codebase for code intelligence
-CONFIG_PATH=./config/models.json
 ```
 
 ### Model Properties
 
 | Property | Values | Description |
 |----------|--------|-------------|
-| `tier` | free, cheap, medium, expensive | Cost tier for routing |
-| `speed` | fast, medium, slow | Response speed |
-| `capability` | basic, moderate, advanced | Task complexity handling |
-| `type` | local, cloud | For local-first routing |
-| `enabled` | true, false | Enable/disable model |
+| `tier` | `free`, `cheap`, `medium`, `expensive` | Cost tier for routing |
+| `speed` | `fast`, `medium`, `slow` | Response speed |
+| `capability` | `basic`, `moderate`, `advanced` | Task complexity handling |
+| `type` | `local`, `cloud` | For local-first routing |
 
 ### Routing Strategies
 
-- **auto**: Select model based on task complexity
-- **cheapest**: Prefer lower-cost models
-- **quality**: Prefer most capable models
-- **local-first**: Prefer local models, fallback to cloud
+- **auto** (default) - Routes based on task complexity
+- **cheapest** - Prefer lowest cost models
+- **quality** - Prefer highest capability models
+- **fastest** - Prefer fastest response times
+- **local-first** - Prefer local models, fallback to cloud
+
+## Environment Variables
+
+```bash
+# API Keys (optional - only for cloud providers)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GROQ_API_KEY=gsk_...
+TOGETHER_API_KEY=...
+
+# Server config
+PORT=3000
+REPO_PATH=/path/to/your/project
+```
 
 ## API Reference
 
-### POST /api/orchestrate
-Start task orchestration with automatic domain routing.
-
-```json
+### Start Orchestration
+```bash
+POST /api/orchestrate
 {
-  "task": "Your task description",
-  "strategy": "auto",
-  "forceDomain": "code-intelligence"  // Optional: force specific domain
+  "task": "Write a REST API for user management",
+  "strategy": "auto"
 }
 ```
 
-### GET /api/domains
-Get registered domains and their stats.
+### Check Status
+```bash
+GET /api/orchestrate/status/{taskId}
+```
 
-### POST /api/code/search
-Search the code memory graph.
+### List Models
+```bash
+GET /api/models
+```
 
-### GET /api/health
-Health check with model and domain info.
+### Add Model (Runtime)
+```bash
+POST /api/models
+{
+  "id": "my-model",
+  "name": "My Model",
+  "endpoint": "http://localhost:1234/v1",
+  "model": "model-name",
+  "enabled": true
+}
+```
+
+### Health Check
+```bash
+GET /api/health
+```
+
+## How It Works
+
+```
+User: "Write a REST API for user management"
+                    │
+                    ▼
+         ┌──────────────────┐
+         │  Task Analysis   │
+         │  Complexity: 7/10│
+         └──────────────────┘
+                    │
+                    ▼
+         ┌──────────────────┐
+         │  Decomposition   │
+         │  (via LLM)       │
+         └──────────────────┘
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+   ┌────────┐  ┌────────┐  ┌────────┐
+   │ S1     │  │ S2     │  │ S3     │
+   │ Schema │  │ Routes │  │ Auth   │
+   │ Haiku  │  │ Haiku  │  │ Sonnet │
+   └────────┘  └────────┘  └────────┘
+        │           │           │
+        ▼           ▼           │
+   ┌────────┐  ┌────────┐       │
+   │ S4     │  │ S5     │       │
+   │ CRUD   │  │ Valid  │◄──────┘
+   │ Sonnet │  │ Haiku  │
+   └────────┘  └────────┘
+        │           │
+        └─────┬─────┘
+              ▼
+         ┌────────┐
+         │ S6     │
+         │ Tests  │
+         │ Opus   │
+         └────────┘
+              │
+              ▼
+      Combined Output
+```
+
+## Project Structure
+
+```
+llm-orchestrator/
+├── src/
+│   ├── server.js           # Main server
+│   ├── public/
+│   │   └── index.html      # Web UI
+│   ├── core/
+│   │   └── domain-router.js
+│   └── domains/
+│       ├── code-intelligence/
+│       ├── research/
+│       └── writing/
+├── config/
+│   └── models.json         # Model configuration
+├── docker/
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+└── package.json
+```
+
+## Supported Providers
+
+| Provider | Models | Free Tier |
+|----------|--------|-----------|
+| **Ollama** | Llama, Gemma, Mistral, etc. | ✅ Unlimited (local) |
+| **LM Studio** | Any GGUF model | ✅ Unlimited (local) |
+| **Groq** | Llama 3, Mixtral | ✅ Generous free tier |
+| **Anthropic** | Claude Opus/Sonnet/Haiku | ❌ Paid only |
+| **OpenAI** | GPT-4, GPT-3.5 | ❌ Paid only |
+| **Together** | Many open models | ✅ Free credits |
 
 ## Development
 
 ```bash
-# Run with auto-reload
+# Watch mode
 npm run dev
 
-# Run tests
-npm test
+# Docker build
+npm run docker:build
+
+# Docker run
+npm run docker:run
 ```
 
 ## License
 
 MIT
+
+## Contributing
+
+PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
