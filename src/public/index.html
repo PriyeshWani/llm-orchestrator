@@ -3,75 +3,195 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧠 Task Orchestrator - DAG Decomposition</title>
+  <title>🧠 Task Orchestrator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
       font-family: 'SF Mono', 'JetBrains Mono', monospace;
       background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
-      min-height: 100vh;
+      height: 100vh;
       color: #e0e0e0;
-      padding: 20px;
+      overflow: hidden;
     }
     
-    .container { max-width: 1600px; margin: 0 auto; }
+    /* Main Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+    }
     
-    header { text-align: center; margin-bottom: 24px; }
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
     
-    h1 {
-      font-size: 2rem;
-      background: linear-gradient(90deg, #00d4ff, #7b2fff, #ff00d4);
+    .header h1 {
+      font-size: 1.3rem;
+      background: linear-gradient(90deg, #00d4ff, #7b2fff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     
-    .subtitle { color: #888; font-size: 0.9rem; }
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      margin-left: auto;
+    }
     
-    /* Input Section */
-    .input-section {
+    .back-link {
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .back-link:hover { color: #fff; }
+    
+    /* Sidebar Toggle */
+    .sidebar-toggle {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .sidebar-toggle:hover { background: rgba(255,255,255,0.15); }
+    .sidebar-toggle.active { background: rgba(123, 47, 255, 0.3); }
+    
+    /* Workspace Sidebar */
+    .workspace-sidebar {
+      width: 280px;
+      background: rgba(0,0,0,0.2);
+      border-right: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s, opacity 0.3s;
+      overflow: hidden;
+    }
+    
+    .workspace-sidebar.collapsed {
+      width: 0;
+      border: none;
+    }
+    
+    .workspace-header {
+      padding: 12px 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .workspace-path-input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+    .workspace-path-input:focus { outline: none; border-color: #7b2fff; }
+    
+    .workspace-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    
+    .ws-btn {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      padding: 6px;
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .ws-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    
+    .file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+    
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 15px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .tree-item:hover { background: rgba(255,255,255,0.05); }
+    .tree-item.active { background: rgba(123, 47, 255, 0.2); }
+    .tree-item.directory { color: #888; }
+    .tree-item.file { color: #e0e0e0; }
+    .tree-icon { width: 16px; text-align: center; }
+    .tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-indent { width: 16px; flex-shrink: 0; }
+    .tree-children { display: none; }
+    .tree-children.open { display: block; }
+    
+    /* Main Content */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 15px;
+      gap: 15px;
+    }
+    
+    /* Task Input */
+    .task-section {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
+      border-radius: 12px;
+      padding: 15px;
     }
     
     .task-input {
       width: 100%;
       background: rgba(0,0,0,0.3);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: 8px;
+      padding: 12px;
       color: #fff;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-family: inherit;
       resize: vertical;
-      min-height: 80px;
-      margin-bottom: 14px;
+      min-height: 70px;
+      margin-bottom: 10px;
     }
+    .task-input:focus { outline: none; border-color: #7b2fff; }
     
-    .task-input:focus {
-      outline: none;
-      border-color: #7b2fff;
-      box-shadow: 0 0 20px rgba(123, 47, 255, 0.2);
-    }
-    
-    .controls {
+    .task-controls {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
     }
     
-    .model-select {
+    .select-input {
       background: rgba(0,0,0,0.3);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      padding: 8px 14px;
+      border-radius: 6px;
+      padding: 8px 12px;
       color: #fff;
       font-family: inherit;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
     
     .btn {
@@ -82,331 +202,275 @@
       color: #fff;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      font-size: 0.85rem;
+      transition: transform 0.2s;
     }
-    
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(123, 47, 255, 0.4);
-    }
-    
+    .btn:hover { transform: translateY(-1px); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn.secondary { background: rgba(255,255,255,0.1); }
     
-    /* Main Grid */
-    .main-grid {
+    /* DAG & Logs Grid */
+    .work-grid {
+      flex: 1;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 15px;
+      overflow: hidden;
     }
-    
-    @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
     
     .panel {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     
     .panel-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
+      padding: 12px 15px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
     
-    .panel-icon { font-size: 1.3rem; }
-    .panel-title { font-size: 0.95rem; font-weight: 600; }
+    .panel-icon { font-size: 1.1rem; }
+    .panel-title { font-size: 0.85rem; font-weight: 600; }
     
-    .model-badge {
-      margin-left: auto;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-    
-    .model-haiku { background: #10b981; color: #fff; }
-    .model-sonnet { background: #6366f1; color: #fff; }
-    .model-opus { background: #ec4899; color: #fff; }
-    
-    /* DAG Visualization */
-    .dag-container {
-      min-height: 350px;
-      position: relative;
-    }
-    
-    /* Graph View Toggle */
     .view-toggle {
       display: flex;
       gap: 4px;
       background: rgba(0,0,0,0.3);
-      padding: 4px;
-      border-radius: 8px;
+      padding: 3px;
+      border-radius: 6px;
       margin-left: auto;
     }
     
     .view-btn {
-      padding: 6px 12px;
+      padding: 5px 10px;
       border: none;
       background: transparent;
       color: #888;
-      border-radius: 6px;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 0.75rem;
-      transition: all 0.2s;
-    }
-    
-    .view-btn.active {
-      background: rgba(123, 47, 255, 0.3);
-      color: #fff;
-    }
-    
-    .view-btn:hover:not(.active) {
-      background: rgba(255,255,255,0.1);
-    }
-    
-    /* Canvas Graph */
-    .graph-canvas-container {
-      position: relative;
-      width: 100%;
-      height: 400px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    
-    #dagCanvas {
-      width: 100%;
-      height: 100%;
-    }
-    
-    .graph-tooltip {
-      position: absolute;
-      background: rgba(0,0,0,0.9);
-      border: 1px solid rgba(123, 47, 255, 0.5);
-      border-radius: 8px;
-      padding: 12px;
-      max-width: 300px;
-      font-size: 0.8rem;
-      pointer-events: none;
-      z-index: 100;
-      display: none;
-    }
-    
-    .graph-tooltip.visible { display: block; }
-    
-    .tooltip-title {
-      font-weight: 600;
-      margin-bottom: 6px;
-      color: #fff;
-    }
-    
-    .tooltip-meta {
-      color: #888;
       font-size: 0.7rem;
-      margin-bottom: 8px;
     }
+    .view-btn.active { background: rgba(123, 47, 255, 0.3); color: #fff; }
     
-    .tooltip-result {
-      color: #aaa;
-      line-height: 1.4;
-      max-height: 100px;
+    .panel-content {
+      flex: 1;
       overflow-y: auto;
+      padding: 15px;
     }
     
+    /* DAG Levels */
     .execution-level {
       display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding: 12px;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px;
       background: rgba(0,0,0,0.2);
-      border-radius: 12px;
+      border-radius: 10px;
       position: relative;
     }
     
     .level-label {
       position: absolute;
-      left: -8px;
+      left: -5px;
       top: 50%;
       transform: translateY(-50%) rotate(-90deg);
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: #666;
       text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    
-    .level-connector {
-      position: absolute;
-      left: 50%;
-      bottom: -16px;
-      width: 2px;
-      height: 16px;
-      background: linear-gradient(to bottom, rgba(123,47,255,0.5), transparent);
     }
     
     .subtask-card {
       flex: 1;
       background: rgba(0,0,0,0.3);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 12px;
-      min-width: 180px;
-      transition: all 0.3s;
+      border-radius: 8px;
+      padding: 10px;
+      min-width: 150px;
     }
     
     .subtask-card.pending { border-color: #666; }
-    .subtask-card.running { 
-      border-color: #f59e0b; 
-      box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
-      animation: glow 1.5s ease-in-out infinite;
-    }
+    .subtask-card.running { border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
     .subtask-card.complete { border-color: #10b981; }
     .subtask-card.error { border-color: #ef4444; }
-    
-    @keyframes glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
-      50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.5); }
-    }
     
     .subtask-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 6px;
     }
     
     .subtask-status {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      flex-shrink: 0;
     }
-    
     .pending .subtask-status { background: #666; }
     .running .subtask-status { background: #f59e0b; animation: pulse 1s infinite; }
     .complete .subtask-status { background: #10b981; }
     .error .subtask-status { background: #ef4444; }
     
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
     
-    .subtask-id {
-      font-size: 0.65rem;
-      color: #888;
-      background: rgba(255,255,255,0.1);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
+    .subtask-id { font-size: 0.6rem; color: #888; background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 3px; }
+    .subtask-model { font-size: 0.6rem; padding: 2px 6px; border-radius: 8px; margin-left: auto; }
+    .model-haiku { background: #10b981; color: #fff; }
+    .model-sonnet { background: #6366f1; color: #fff; }
+    .model-opus { background: #ec4899; color: #fff; }
     
-    .subtask-model {
-      font-size: 0.65rem;
-      padding: 2px 8px;
-      border-radius: 10px;
-      margin-left: auto;
-    }
+    .subtask-name { font-size: 0.75rem; line-height: 1.4; margin-bottom: 6px; }
+    .subtask-result { font-size: 0.7rem; color: #888; max-height: 60px; overflow: hidden; }
     
-    .subtask-name {
-      font-size: 0.8rem;
-      line-height: 1.4;
-      margin-bottom: 8px;
-    }
-    
-    .subtask-meta {
-      display: flex;
-      gap: 8px;
-      font-size: 0.7rem;
-      color: #888;
-    }
-    
-    .complexity-bar {
-      width: 50px;
-      height: 4px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    
-    .complexity-fill {
+    /* Graph Canvas */
+    .graph-canvas-container {
+      position: relative;
+      width: 100%;
       height: 100%;
-      border-radius: 2px;
+      min-height: 250px;
+    }
+    
+    #dagCanvas { width: 100%; height: 100%; }
+    
+    /* Logs */
+    .log-entry {
+      display: flex;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .log-time { color: #666; flex-shrink: 0; }
+    .log-model { padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; }
+    .log-msg { flex: 1; }
+    
+    /* Output Sidebar */
+    .output-sidebar {
+      width: 400px;
+      background: rgba(0,0,0,0.2);
+      border-left: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
       transition: width 0.3s;
     }
     
-    .complexity-low { background: #10b981; }
-    .complexity-medium { background: #f59e0b; }
-    .complexity-high { background: #ef4444; }
+    .output-sidebar.collapsed { width: 0; border: none; overflow: hidden; }
     
-    .subtask-deps {
-      font-size: 0.65rem;
-      color: #666;
-      margin-top: 6px;
-    }
-    
-    .subtask-result {
-      font-size: 0.75rem;
-      color: #aaa;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed rgba(255,255,255,0.1);
-      max-height: 60px;
-      overflow-y: auto;
-    }
-    
-    /* Logs */
-    .logs {
-      font-size: 0.8rem;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-    
-    .log-entry {
-      padding: 6px 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+    .output-header {
+      padding: 12px 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
       display: flex;
-      gap: 8px;
-      align-items: flex-start;
-    }
-    
-    .log-time { color: #666; flex-shrink: 0; font-size: 0.7rem; }
-    .log-model { padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; flex-shrink: 0; }
-    .log-msg { flex: 1; }
-    
-    .log-entry.orchestrator { background: rgba(123, 47, 255, 0.1); }
-    .log-entry.subagent { background: rgba(0, 212, 255, 0.05); }
-    .log-entry.parallel { background: rgba(16, 185, 129, 0.1); }
-    
-    /* Stats */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
       gap: 10px;
-      margin-top: 20px;
     }
     
-    @media (max-width: 800px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+    .output-title { font-size: 0.85rem; font-weight: 600; }
     
-    .stat-card {
-      background: rgba(0,0,0,0.2);
+    .output-actions {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+    
+    .output-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+    }
+    
+    .output-code {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .output-code pre {
+      margin: 0;
+      padding: 15px;
+      overflow-x: auto;
+    }
+    
+    .output-code code {
+      font-family: 'SF Mono', 'JetBrains Mono', monospace !important;
+      font-size: 0.8rem !important;
+      line-height: 1.5 !important;
+    }
+    
+    .output-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #666;
+      gap: 10px;
+    }
+    
+    .output-placeholder-icon { font-size: 2rem; }
+    
+    /* Save Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.visible { display: flex; }
+    
+    .modal {
+      background: #1a1a2e;
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+    }
+    
+    .modal h2 { margin-bottom: 20px; font-size: 1.1rem; }
+    
+    .modal-input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
       padding: 12px;
-      text-align: center;
+      color: #fff;
+      font-family: inherit;
+      margin-bottom: 15px;
+    }
+    .modal-input:focus { outline: none; border-color: #7b2fff; }
+    
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    
+    /* Stats Bar */
+    .stats-bar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      padding: 8px 20px;
+      background: rgba(0,0,0,0.3);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.75rem;
     }
     
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      background: linear-gradient(90deg, #00d4ff, #7b2fff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    
-    .stat-label { font-size: 0.7rem; color: #888; margin-top: 4px; }
+    .stat { display: flex; align-items: center; gap: 8px; }
+    .stat-value { color: #fff; font-weight: 600; }
+    .stat-label { color: #888; }
     
     /* Empty State */
     .empty-state {
@@ -414,420 +478,309 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 300px;
+      height: 100%;
       color: #666;
+      gap: 10px;
     }
-    
-    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
-    
-    /* Legend */
-    .legend {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      margin-top: 16px;
-      font-size: 0.75rem;
-      color: #888;
-    }
-    
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-    
-    /* Model Config */
-    .model-config-panel {
-      margin-bottom: 20px;
-    }
-    
-    .model-input {
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px;
-      padding: 8px 12px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.85rem;
-    }
-    
-    .model-input:focus {
-      outline: none;
-      border-color: #7b2fff;
-    }
-    
-    .model-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(0,0,0,0.2);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    
-    .model-card.local { border-left: 3px solid #10b981; }
-    .model-card.cloud { border-left: 3px solid #6366f1; }
-    .model-card.disabled { opacity: 0.5; }
-    
-    .model-card-info { flex: 1; }
-    .model-card-name { font-weight: 600; font-size: 0.9rem; }
-    .model-card-endpoint { font-size: 0.75rem; color: #888; margin-top: 2px; }
-    .model-card-tags { display: flex; gap: 6px; margin-top: 6px; }
-    .model-card-tag {
-      font-size: 0.65rem;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.1);
-    }
-    .model-card-tag.free { background: rgba(16,185,129,0.3); color: #10b981; }
-    .model-card-tag.fast { background: rgba(245,158,11,0.3); color: #f59e0b; }
-    
-    .model-card-actions {
-      display: flex;
-      gap: 6px;
-    }
-    
-    .model-card-btn {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 4px;
-      padding: 4px 8px;
-      color: #888;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    
-    .model-card-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
-    .model-card-btn.delete:hover { background: rgba(239,68,68,0.3); color: #ef4444; }
+    .empty-icon { font-size: 2rem; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <div class="app-layout">
+    <!-- Header -->
+    <div class="header">
+      <a href="/" class="back-link">← Dashboard</a>
       <h1>🧠 Task Orchestrator</h1>
-      <p class="subtitle">DAG-based Decomposition with Parallel Execution</p>
-    </header>
-    
-    <div class="input-section">
-      <textarea class="task-input" id="taskInput" placeholder="Enter a complex task to decompose...&#10;&#10;Example: Create a comprehensive market analysis report for electric vehicles including competitor analysis, market trends, and future predictions."></textarea>
-      <div class="controls">
-        <label style="color: #888; font-size: 0.8rem;">Orchestrator:</label>
-        <select class="model-select" id="orchestratorModel">
-          <option value="haiku">Haiku (Fast)</option>
-          <option value="sonnet" selected>Sonnet (Balanced)</option>
-          <option value="opus">Opus (Quality)</option>
-        </select>
-        <label style="color: #888; font-size: 0.8rem; margin-left: 10px;">Strategy:</label>
-        <select class="model-select" id="routingStrategy">
-          <option value="auto">Auto (Complexity)</option>
-          <option value="cheapest">Cheapest First</option>
-          <option value="fastest">Fastest</option>
-          <option value="quality">Quality First</option>
-          <option value="local-first">Local First</option>
-        </select>
-        <button class="btn" id="runBtn">🚀 Decompose & Execute</button>
-        <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="toggleModelConfig()">⚙️ Models</button>
+      <div class="header-controls">
+        <button class="sidebar-toggle active" id="toggleWorkspace" onclick="toggleWorkspace()">📁 Workspace</button>
+        <button class="sidebar-toggle active" id="toggleOutput" onclick="toggleOutput()">📄 Output</button>
+        <button class="sidebar-toggle" onclick="toggleModelConfig()">⚙️ Models</button>
       </div>
     </div>
     
-    <!-- Model Configuration Panel -->
-    <div class="model-config-panel" id="modelConfigPanel" style="display:none;">
-      <div class="panel" style="margin-bottom: 20px;">
-        <div class="panel-header">
-          <span class="panel-icon">⚙️</span>
-          <span class="panel-title">Model Configuration</span>
-          <button class="btn" style="margin-left:auto; padding:6px 12px; font-size:0.8rem;" onclick="toggleModelConfig()">✕ Close</button>
+    <!-- Workspace Sidebar -->
+    <div class="workspace-sidebar" id="workspaceSidebar">
+      <div class="workspace-header">
+        <input type="text" class="workspace-path-input" id="workspacePath" placeholder="/path/to/project" value="">
+        <div class="workspace-actions">
+          <button class="ws-btn" onclick="loadWorkspace()">📂 Open</button>
+          <button class="ws-btn" onclick="refreshTree()">↻</button>
+          <button class="ws-btn" onclick="showNewFileModal()">+ File</button>
         </div>
-        
-        <div class="model-list" id="modelList"></div>
-        
-        <div class="add-model-form">
-          <h4 style="margin: 16px 0 12px; color: #888; font-size: 0.85rem;">➕ Add New Model</h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
-            <input type="text" id="newModelId" placeholder="Model ID (e.g., llama3)" class="model-input">
-            <input type="text" id="newModelName" placeholder="Display Name" class="model-input">
-            <input type="text" id="newModelEndpoint" placeholder="API Endpoint URL" class="model-input" style="grid-column: span 2;">
-            <input type="text" id="newModelModel" placeholder="Model name at endpoint" class="model-input">
-            <select id="newModelTier" class="model-input">
-              <option value="free">Free (Local)</option>
-              <option value="cheap">Cheap</option>
-              <option value="medium">Medium</option>
-              <option value="expensive">Expensive</option>
-            </select>
-            <select id="newModelSpeed" class="model-input">
-              <option value="fast">Fast</option>
-              <option value="medium">Medium</option>
-              <option value="slow">Slow</option>
-            </select>
-            <select id="newModelCapability" class="model-input">
-              <option value="basic">Basic (Simple tasks)</option>
-              <option value="moderate">Moderate (Analysis)</option>
-              <option value="advanced">Advanced (Complex reasoning)</option>
-            </select>
-          </div>
-          <button class="btn" style="margin-top: 12px;" onclick="addModel()">➕ Add Model</button>
-        </div>
-        
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-          <h4 style="margin-bottom: 10px; color: #888; font-size: 0.85rem;">🔗 Quick Setup</h4>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(16,185,129,0.3);" onclick="addPreset('ollama')">+ Ollama (localhost)</button>
-            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(99,102,241,0.3);" onclick="addPreset('lmstudio')">+ LM Studio</button>
-            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(245,158,11,0.3);" onclick="addPreset('groq')">+ Groq</button>
-            <button class="btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(236,72,153,0.3);" onclick="addPreset('together')">+ Together.ai</button>
-          </div>
+      </div>
+      <div class="file-tree" id="fileTree">
+        <div class="empty-state" style="padding: 30px;">
+          <div>Enter workspace path</div>
         </div>
       </div>
     </div>
     
-    <div class="main-grid">
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-icon">🌳</span>
-          <span class="panel-title">DAG Execution Graph</span>
-          <span class="model-badge model-sonnet" id="decomposerBadge" style="display:none;">SONNET</span>
-          <div class="view-toggle">
-            <button class="view-btn active" id="viewLevels" onclick="setView('levels')">📊 Levels</button>
-            <button class="view-btn" id="viewGraph" onclick="setView('graph')">🔗 Graph</button>
-          </div>
-        </div>
-        <div class="dag-container" id="dagContainer">
-          <div class="empty-state">
-            <div class="empty-icon">🎯</div>
-            <div>Enter a task to see the execution DAG</div>
-          </div>
-        </div>
-        <div class="graph-canvas-container" id="graphContainer" style="display: none;">
-          <canvas id="dagCanvas"></canvas>
-          <div class="graph-tooltip" id="graphTooltip">
-            <div class="tooltip-title"></div>
-            <div class="tooltip-meta"></div>
-            <div class="tooltip-result"></div>
-          </div>
-        </div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#666"></div> Pending</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Running</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Complete</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Error</div>
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Task Input -->
+      <div class="task-section">
+        <textarea class="task-input" id="taskInput" placeholder="Enter a task to decompose and execute...&#10;&#10;Example: Write a function to sort an array using quicksort algorithm"></textarea>
+        <div class="task-controls">
+          <select class="select-input" id="orchestratorModel">
+            <option value="haiku">Haiku (Fast)</option>
+            <option value="sonnet" selected>Sonnet (Balanced)</option>
+            <option value="opus">Opus (Quality)</option>
+          </select>
+          <select class="select-input" id="routingStrategy">
+            <option value="auto">Auto Routing</option>
+            <option value="cheapest">Cheapest</option>
+            <option value="quality">Quality</option>
+          </select>
+          <button class="btn" id="runBtn" onclick="runDecomposition()">🚀 Execute</button>
         </div>
       </div>
       
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-icon">📊</span>
-          <span class="panel-title">Execution Logs</span>
+      <!-- DAG & Logs -->
+      <div class="work-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-icon">🌳</span>
+            <span class="panel-title">Execution DAG</span>
+            <div class="view-toggle">
+              <button class="view-btn active" id="viewLevels" onclick="setView('levels')">Levels</button>
+              <button class="view-btn" id="viewGraph" onclick="setView('graph')">Graph</button>
+            </div>
+          </div>
+          <div class="panel-content" id="dagContainer">
+            <div class="empty-state">
+              <div class="empty-icon">🎯</div>
+              <div>Enter a task to see the DAG</div>
+            </div>
+          </div>
+          <div class="panel-content" id="graphContainer" style="display: none;">
+            <div class="graph-canvas-container">
+              <canvas id="dagCanvas"></canvas>
+            </div>
+          </div>
         </div>
-        <div class="logs" id="logs">
-          <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <div>Logs will appear here</div>
+        
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-icon">📊</span>
+            <span class="panel-title">Execution Logs</span>
+          </div>
+          <div class="panel-content" id="logs">
+            <div class="empty-state">
+              <div class="empty-icon">📝</div>
+              <div>Logs appear here</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
-    <div class="stats" id="stats" style="display:none;">
-      <div class="stat-card">
-        <div class="stat-value" id="statSubtasks">0</div>
-        <div class="stat-label">Subtasks</div>
+    <!-- Output Sidebar -->
+    <div class="output-sidebar" id="outputSidebar">
+      <div class="output-header">
+        <span class="panel-icon">📄</span>
+        <span class="output-title">Final Output</span>
+        <div class="output-actions">
+          <button class="ws-btn" onclick="copyOutput()">📋 Copy</button>
+          <button class="ws-btn" onclick="showSaveModal()">💾 Save</button>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value" id="statParallel">0</div>
-        <div class="stat-label">Parallel Levels</div>
+      <div class="output-content" id="outputContent">
+        <div class="output-placeholder">
+          <div class="output-placeholder-icon">📄</div>
+          <div>Output will appear here</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value" id="statTokens">0</div>
-        <div class="stat-label">Total Tokens</div>
+    </div>
+    
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-value" id="statSubtasks">0</span>
+        <span class="stat-label">Subtasks</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-value" id="statCost">$0.00</div>
-        <div class="stat-label">Est. Cost</div>
+      <div class="stat">
+        <span class="stat-value" id="statLevels">0</span>
+        <span class="stat-label">Levels</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-value" id="statTime">0s</div>
-        <div class="stat-label">Elapsed</div>
+      <div class="stat">
+        <span class="stat-value" id="statTokens">0</span>
+        <span class="stat-label">Tokens</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="statTime">0s</span>
+        <span class="stat-label">Time</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Save Modal -->
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <h2>💾 Save Output to File</h2>
+      <input type="text" class="modal-input" id="saveFilePath" placeholder="filename.js (relative to workspace)">
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="hideSaveModal()">Cancel</button>
+        <button class="btn" onclick="saveOutput()">Save</button>
       </div>
     </div>
   </div>
   
   <script>
+    // State
     let taskId = null;
     let pollInterval = null;
     let startTime = null;
     let logs = [];
     let subtasks = [];
     let executionLevels = [];
+    let currentView = 'levels';
+    let finalOutput = '';
+    let workspacePath = localStorage.getItem('orchestrator-workspace') || '';
     
-    // Default cloud models
-    const DEFAULT_MODELS = {
-      haiku: { id: 'haiku', name: 'Claude Haiku', endpoint: 'gateway', model: 'anthropic/claude-3-haiku', tier: 'cheap', speed: 'fast', capability: 'basic', type: 'cloud' },
-      sonnet: { id: 'sonnet', name: 'Claude Sonnet', endpoint: 'gateway', model: 'anthropic/claude-sonnet-4', tier: 'medium', speed: 'medium', capability: 'moderate', type: 'cloud' },
-      opus: { id: 'opus', name: 'Claude Opus', endpoint: 'gateway', model: 'anthropic/claude-opus-4', tier: 'expensive', speed: 'slow', capability: 'advanced', type: 'cloud' }
-    };
+    // Initialize
+    document.getElementById('workspacePath').value = workspacePath;
+    if (workspacePath) loadWorkspace();
     
-    // Load models from localStorage or use defaults
-    let models = JSON.parse(localStorage.getItem('orchestrator-models')) || { ...DEFAULT_MODELS };
+    // Model config
+    const MODEL_COLORS = { haiku: 'model-haiku', sonnet: 'model-sonnet', opus: 'model-opus' };
+    const MODEL_NAMES = { haiku: 'HAIKU', sonnet: 'SONNET', opus: 'OPUS' };
     
-    function saveModels() {
-      localStorage.setItem('orchestrator-models', JSON.stringify(models));
-      renderModelList();
-      updateModelSelects();
+    // Toggle panels
+    function toggleWorkspace() {
+      const sidebar = document.getElementById('workspaceSidebar');
+      const btn = document.getElementById('toggleWorkspace');
+      sidebar.classList.toggle('collapsed');
+      btn.classList.toggle('active');
     }
     
-    function renderModelList() {
-      const container = document.getElementById('modelList');
-      const modelArray = Object.values(models);
-      
-      if (!modelArray.length) {
-        container.innerHTML = '<p style="color:#666; text-align:center; padding:20px;">No models configured</p>';
-        return;
-      }
-      
-      container.innerHTML = modelArray.map(m => `
-        <div class="model-card ${m.type || 'cloud'} ${m.enabled === false ? 'disabled' : ''}">
-          <div class="model-card-info">
-            <div class="model-card-name">${m.name}</div>
-            <div class="model-card-endpoint">${m.endpoint === 'gateway' ? '🌐 Via Gateway' : m.endpoint}</div>
-            <div class="model-card-tags">
-              <span class="model-card-tag ${m.tier === 'free' ? 'free' : ''}">${m.tier}</span>
-              <span class="model-card-tag ${m.speed === 'fast' ? 'fast' : ''}">${m.speed}</span>
-              <span class="model-card-tag">${m.capability}</span>
-              ${m.type === 'local' ? '<span class="model-card-tag free">LOCAL</span>' : ''}
-            </div>
-          </div>
-          <div class="model-card-actions">
-            <button class="model-card-btn" onclick="testModel('${m.id}')">🔗 Test</button>
-            <button class="model-card-btn" onclick="toggleModel('${m.id}')">${m.enabled === false ? '✓ Enable' : '⏸ Disable'}</button>
-            ${!DEFAULT_MODELS[m.id] ? `<button class="model-card-btn delete" onclick="deleteModel('${m.id}')">🗑</button>` : ''}
-          </div>
-        </div>
-      `).join('');
-    }
-    
-    function updateModelSelects() {
-      const select = document.getElementById('orchestratorModel');
-      const enabledModels = Object.values(models).filter(m => m.enabled !== false);
-      
-      // Keep current selection if possible
-      const current = select.value;
-      
-      select.innerHTML = enabledModels.map(m => 
-        `<option value="${m.id}">${m.name} (${m.speed})</option>`
-      ).join('');
-      
-      if (enabledModels.find(m => m.id === current)) {
-        select.value = current;
-      }
+    function toggleOutput() {
+      const sidebar = document.getElementById('outputSidebar');
+      const btn = document.getElementById('toggleOutput');
+      sidebar.classList.toggle('collapsed');
+      btn.classList.toggle('active');
     }
     
     function toggleModelConfig() {
-      const panel = document.getElementById('modelConfigPanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-      if (panel.style.display === 'block') renderModelList();
+      alert('Model config coming soon!');
     }
     
-    function addModel() {
-      const id = document.getElementById('newModelId').value.trim();
-      const name = document.getElementById('newModelName').value.trim();
-      const endpoint = document.getElementById('newModelEndpoint').value.trim();
-      const model = document.getElementById('newModelModel').value.trim();
-      const tier = document.getElementById('newModelTier').value;
-      const speed = document.getElementById('newModelSpeed').value;
-      const capability = document.getElementById('newModelCapability').value;
+    // Workspace functions
+    async function loadWorkspace() {
+      workspacePath = document.getElementById('workspacePath').value.trim();
+      if (!workspacePath) return;
       
-      if (!id || !name || !endpoint) {
-        alert('Please fill in ID, Name, and Endpoint');
-        return;
-      }
-      
-      models[id] = {
-        id, name, endpoint, model: model || id,
-        tier, speed, capability,
-        type: endpoint.includes('localhost') || endpoint.includes('127.0.0.1') ? 'local' : 'cloud',
-        enabled: true
-      };
-      
-      saveModels();
-      
-      // Clear form
-      ['newModelId', 'newModelName', 'newModelEndpoint', 'newModelModel'].forEach(id => {
-        document.getElementById(id).value = '';
-      });
-      
-      addLog('system', null, `✅ Added model: ${name}`);
-    }
-    
-    function deleteModel(id) {
-      if (confirm(`Delete model "${models[id]?.name}"?`)) {
-        delete models[id];
-        saveModels();
-      }
-    }
-    
-    function toggleModel(id) {
-      if (models[id]) {
-        models[id].enabled = models[id].enabled === false ? true : false;
-        saveModels();
-      }
-    }
-    
-    async function testModel(id) {
-      const model = models[id];
-      if (!model) return;
-      
-      addLog('system', null, `🔗 Testing ${model.name}...`);
+      localStorage.setItem('orchestrator-workspace', workspacePath);
       
       try {
-        const endpoint = model.endpoint === 'gateway' 
-          ? '/api/orchestrate/health'
-          : `${model.endpoint}/models`;
-        
-        const res = await fetch(endpoint, { timeout: 5000 });
-        if (res.ok) {
-          addLog('system', null, `✅ ${model.name} is reachable!`);
-        } else {
-          addLog('system', null, `⚠️ ${model.name} returned ${res.status}`);
-        }
-      } catch (err) {
-        addLog('system', null, `❌ ${model.name} unreachable: ${err.message}`);
+        const res = await fetch(`/api/workspace/tree?path=${encodeURIComponent(workspacePath)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderTree(data.tree, document.getElementById('fileTree'));
+      } catch (e) {
+        document.getElementById('fileTree').innerHTML = `<div class="empty-state" style="padding: 20px; color: #ef4444;">${e.message}</div>`;
       }
     }
     
-    function addPreset(type) {
-      const presets = {
-        ollama: { id: 'ollama-llama3', name: 'Llama 3 (Ollama)', endpoint: 'http://localhost:11434/v1', model: 'llama3', tier: 'free', speed: 'medium', capability: 'moderate' },
-        lmstudio: { id: 'lmstudio', name: 'LM Studio', endpoint: 'http://localhost:1234/v1', model: 'local-model', tier: 'free', speed: 'medium', capability: 'moderate' },
-        groq: { id: 'groq-llama', name: 'Groq Llama 3', endpoint: 'https://api.groq.com/openai/v1', model: 'llama3-70b-8192', tier: 'cheap', speed: 'fast', capability: 'advanced' },
-        together: { id: 'together-mistral', name: 'Together Mistral', endpoint: 'https://api.together.xyz/v1', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1', tier: 'cheap', speed: 'fast', capability: 'moderate' }
-      };
+    function renderTree(items, container, depth = 0) {
+      container.innerHTML = '';
+      items.sort((a, b) => {
+        if (a.type === b.type) return a.name.localeCompare(b.name);
+        return a.type === 'directory' ? -1 : 1;
+      });
       
-      const preset = presets[type];
-      if (preset) {
-        models[preset.id] = { ...preset, type: preset.endpoint.includes('localhost') ? 'local' : 'cloud', enabled: true };
-        saveModels();
-        addLog('system', null, `✅ Added preset: ${preset.name}`);
+      items.forEach(item => {
+        const div = document.createElement('div');
+        const itemEl = document.createElement('div');
+        itemEl.className = `tree-item ${item.type}`;
+        itemEl.innerHTML = `
+          ${'<span class="tree-indent"></span>'.repeat(depth)}
+          <span class="tree-icon">${item.type === 'directory' ? '📁' : getFileIcon(item.name)}</span>
+          <span class="tree-name">${item.name}</span>
+        `;
+        
+        if (item.type === 'directory') {
+          const childContainer = document.createElement('div');
+          childContainer.className = 'tree-children';
+          
+          itemEl.onclick = async () => {
+            if (childContainer.children.length === 0) {
+              const res = await fetch(`/api/workspace/tree?path=${encodeURIComponent(item.path)}`);
+              const data = await res.json();
+              renderTree(data.tree || [], childContainer, depth + 1);
+            }
+            childContainer.classList.toggle('open');
+            itemEl.querySelector('.tree-icon').textContent = childContainer.classList.contains('open') ? '📂' : '📁';
+          };
+          
+          div.appendChild(itemEl);
+          div.appendChild(childContainer);
+        } else {
+          itemEl.onclick = () => viewFile(item.path);
+          div.appendChild(itemEl);
+        }
+        
+        container.appendChild(div);
+      });
+    }
+    
+    function getFileIcon(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      const icons = { js: '📜', ts: '📘', py: '🐍', html: '🌐', css: '🎨', json: '📋', md: '📝' };
+      return icons[ext] || '📄';
+    }
+    
+    async function viewFile(path) {
+      try {
+        const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(path)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        const ext = path.split('.').pop().toLowerCase();
+        const langMap = { js: 'javascript', ts: 'typescript', py: 'python', html: 'html', css: 'css', json: 'json', md: 'markdown' };
+        const lang = langMap[ext] || 'plaintext';
+        
+        const highlighted = hljs.highlight(data.content, { language: lang, ignoreIllegals: true }).value;
+        document.getElementById('outputContent').innerHTML = `
+          <div style="margin-bottom: 10px; color: #888; font-size: 0.8rem;">📄 ${path}</div>
+          <div class="output-code"><pre><code class="hljs">${highlighted}</code></pre></div>
+        `;
+      } catch (e) {
+        alert('Failed to load file: ' + e.message);
       }
     }
     
-    // Initialize
-    renderModelList();
-    updateModelSelects();
+    function refreshTree() { loadWorkspace(); }
     
-    // Dynamic model colors/names based on configured models
-    function getModelColor(id) {
-      const tierColors = { free: 'model-haiku', cheap: 'model-haiku', medium: 'model-sonnet', expensive: 'model-opus' };
-      return tierColors[models[id]?.tier] || 'model-sonnet';
+    function showNewFileModal() {
+      const name = prompt('New file name:');
+      if (name) createFile(name);
     }
     
-    function getModelName(id) {
-      return models[id]?.name?.toUpperCase() || id.toUpperCase();
+    async function createFile(name) {
+      const path = workspacePath + '/' + name;
+      try {
+        await fetch('/api/workspace/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, content: '' })
+        });
+        refreshTree();
+      } catch (e) {
+        alert('Failed to create file: ' + e.message);
+      }
     }
     
-    // Legacy support
-    const MODEL_COLORS = new Proxy({}, { get: (_, id) => getModelColor(id) });
-    const MODEL_NAMES = new Proxy({}, { get: (_, id) => getModelName(id) });
-    const COMPLEXITY_CLASSES = { low: 'complexity-low', medium: 'complexity-medium', high: 'complexity-high' };
+    // DAG View
+    function setView(view) {
+      currentView = view;
+      document.getElementById('viewLevels').classList.toggle('active', view === 'levels');
+      document.getElementById('viewGraph').classList.toggle('active', view === 'graph');
+      document.getElementById('dagContainer').style.display = view === 'levels' ? 'block' : 'none';
+      document.getElementById('graphContainer').style.display = view === 'graph' ? 'block' : 'none';
+      if (view === 'graph') renderGraph();
+    }
     
+    // Logs
     function addLog(type, model, message) {
       logs.push({ time: new Date().toLocaleTimeString(), type, model, message });
       renderLogs();
@@ -836,11 +789,11 @@
     function renderLogs() {
       const el = document.getElementById('logs');
       if (!logs.length) {
-        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div>Logs will appear here</div></div>';
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div>Logs appear here</div></div>';
         return;
       }
       el.innerHTML = logs.map(l => `
-        <div class="log-entry ${l.type}">
+        <div class="log-entry">
           <span class="log-time">${l.time}</span>
           ${l.model ? `<span class="log-model ${MODEL_COLORS[l.model]}">${MODEL_NAMES[l.model]}</span>` : ''}
           <span class="log-msg">${l.message}</span>
@@ -849,11 +802,11 @@
       el.scrollTop = el.scrollHeight;
     }
     
+    // DAG rendering
     function renderDAG() {
       const container = document.getElementById('dagContainer');
-      
       if (!executionLevels.length) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div>Enter a task to see the execution DAG</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div>Enter a task to see the DAG</div></div>';
         return;
       }
       
@@ -863,180 +816,34 @@
       let html = '';
       executionLevels.forEach((levelIds, levelIdx) => {
         const levelSubtasks = levelIds.map(id => subtaskMap[id]).filter(Boolean);
-        const isLastLevel = levelIdx === executionLevels.length - 1;
-        
         html += `
           <div class="execution-level">
-            <span class="level-label">L${levelIdx + 1} ${levelSubtasks.length > 1 ? '⚡ parallel' : ''}</span>
+            <span class="level-label">L${levelIdx + 1}</span>
             ${levelSubtasks.map(st => `
-              <div class="subtask-card ${st.status}" id="card-${st.id}">
+              <div class="subtask-card ${st.status}">
                 <div class="subtask-header">
                   <div class="subtask-status"></div>
                   <span class="subtask-id">${st.id}</span>
-                  <span class="subtask-model ${MODEL_COLORS[st.model]}">${MODEL_NAMES[st.model]}</span>
+                  <span class="subtask-model ${MODEL_COLORS[st.model]}">${MODEL_NAMES[st.model] || st.model}</span>
                 </div>
                 <div class="subtask-name">${st.name}</div>
-                <div class="subtask-meta">
-                  <span>${st.complexity || 'auto'}</span>
-                  <div class="complexity-bar">
-                    <div class="complexity-fill ${COMPLEXITY_CLASSES[st.complexity] || 'complexity-medium'}" 
-                         style="width: ${(st.complexityScore || 5) * 10}%"></div>
-                  </div>
-                  ${st.tokens ? `<span>${st.tokens} tok</span>` : ''}
-                </div>
-                ${st.dependsOn?.length ? `<div class="subtask-deps">← depends on: ${st.dependsOn.join(', ')}</div>` : ''}
-                ${st.result ? `<div class="subtask-result">${st.result}</div>` : ''}
+                ${st.result ? `<div class="subtask-result">${st.result.slice(0, 100)}...</div>` : ''}
               </div>
             `).join('')}
-            ${!isLastLevel ? '<div class="level-connector"></div>' : ''}
           </div>
         `;
       });
-      
       container.innerHTML = html;
     }
     
-    function updateStats(data = {}) {
-      if (!startTime) return;
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('statTime').textContent = `${elapsed}s`;
-      document.getElementById('statSubtasks').textContent = subtasks.length;
-      document.getElementById('statParallel').textContent = executionLevels.length;
-      
-      const totalTokens = data.totalTokens || subtasks.reduce((sum, st) => sum + (st.tokens || 0), 0);
-      document.getElementById('statTokens').textContent = totalTokens.toLocaleString();
-      
-      // Cost estimation
-      const costPerMToken = { haiku: 0.25, sonnet: 3, opus: 15 };
-      let cost = 0;
-      subtasks.forEach(st => {
-        cost += ((st.tokens || 300) / 1000000) * (costPerMToken[st.model] || 1);
-      });
-      document.getElementById('statCost').textContent = `$${cost.toFixed(4)}`;
-    }
-    
-    async function runDecomposition() {
-      const task = document.getElementById('taskInput').value.trim();
-      if (!task) return alert('Please enter a task');
-      
-      const orchestratorModel = document.getElementById('orchestratorModel').value;
-      const strategy = document.getElementById('routingStrategy').value;
-      
-      logs = [];
-      subtasks = [];
-      executionLevels = [];
-      startTime = Date.now();
-      
-      document.getElementById('runBtn').disabled = true;
-      document.getElementById('stats').style.display = 'grid';
-      
-      const badge = document.getElementById('decomposerBadge');
-      badge.style.display = 'inline';
-      badge.className = `model-badge ${MODEL_COLORS[orchestratorModel]}`;
-      badge.textContent = MODEL_NAMES[orchestratorModel];
-      
-      addLog('system', null, '🚀 Starting DAG decomposition...');
-      addLog('orchestrator', orchestratorModel, 'Analyzing task and building dependency graph...');
-      
-      renderDAG();
-      const statsInterval = setInterval(() => updateStats(), 1000);
-      
-      try {
-        const response = await fetch('/api/orchestrate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task, orchestratorModel, strategy })
-        });
-        
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        
-        taskId = data.taskId;
-        subtasks = data.subtasks;
-        executionLevels = data.executionLevels || [];
-        
-        const parallelCount = executionLevels.filter(l => l.length > 1).length;
-        addLog('orchestrator', orchestratorModel, `Decomposed into ${subtasks.length} subtasks across ${executionLevels.length} levels (${parallelCount} parallel)`);
-        
-        if (data.baseComplexity) {
-          addLog('system', null, `📊 Base complexity score: ${data.baseComplexity.toFixed(1)}/10`);
-        }
-        
-        renderDAG();
-        
-        // Poll for updates
-        pollInterval = setInterval(async () => {
-          try {
-            const status = await fetch(`/api/orchestrate/status/${taskId}`).then(r => r.json());
-            
-            if (status.subtasks) {
-              status.subtasks.forEach((st, i) => {
-                const prev = subtasks[i];
-                if (prev && prev.status !== st.status) {
-                  if (st.status === 'running') {
-                    const levelIdx = executionLevels.findIndex(l => l.includes(st.id));
-                    const isParallel = executionLevels[levelIdx]?.length > 1;
-                    addLog(isParallel ? 'parallel' : 'subagent', st.model, 
-                           `${isParallel ? '⚡' : '▶️'} ${st.name}`);
-                  } else if (st.status === 'complete') {
-                    addLog('subagent', st.model, `✅ ${st.name} (${st.tokens || '?'} tokens)`);
-                  } else if (st.status === 'error') {
-                    addLog('subagent', st.model, `❌ ${st.name}`);
-                  }
-                }
-                subtasks[i] = { ...subtasks[i], ...st };
-              });
-              renderDAG();
-              updateStats(status);
-            }
-            
-            if (status.complete) {
-              clearInterval(pollInterval);
-              clearInterval(statsInterval);
-              addLog('system', null, `🎉 Complete! ${status.totalTokens || 0} total tokens`);
-              document.getElementById('runBtn').disabled = false;
-            }
-          } catch (err) {
-            console.error('Poll error:', err);
-          }
-        }, 800);
-        
-      } catch (err) {
-        addLog('system', null, `❌ Error: ${err.message}`);
-        document.getElementById('runBtn').disabled = false;
-        clearInterval(statsInterval);
-      }
-    }
-    
-    document.getElementById('runBtn').onclick = runDecomposition;
-    document.getElementById('taskInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && e.metaKey) runDecomposition();
-    });
-    
-    // ============ GRAPH VIEW ============
-    
-    let currentView = 'levels';
+    // Graph rendering
     let nodePositions = {};
-    let hoveredNode = null;
-    
-    function setView(view) {
-      currentView = view;
-      document.getElementById('viewLevels').classList.toggle('active', view === 'levels');
-      document.getElementById('viewGraph').classList.toggle('active', view === 'graph');
-      document.getElementById('dagContainer').style.display = view === 'levels' ? 'block' : 'none';
-      document.getElementById('graphContainer').style.display = view === 'graph' ? 'block' : 'none';
-      
-      if (view === 'graph' && subtasks.length) {
-        renderGraph();
-      }
-    }
     
     function renderGraph() {
       const canvas = document.getElementById('dagCanvas');
       const container = document.getElementById('graphContainer');
       const ctx = canvas.getContext('2d');
       
-      // Set canvas size
       const rect = container.getBoundingClientRect();
       canvas.width = rect.width * window.devicePixelRatio;
       canvas.height = rect.height * window.devicePixelRatio;
@@ -1047,7 +854,6 @@
       const width = rect.width;
       const height = rect.height;
       
-      // Calculate node positions based on execution levels
       nodePositions = {};
       const subtaskMap = {};
       subtasks.forEach(st => subtaskMap[st.id] = st);
@@ -1065,27 +871,10 @@
         });
       });
       
-      // Clear canvas
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
       ctx.fillRect(0, 0, width, height);
       
-      // Draw grid
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < width; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-      
-      // Draw edges first
+      // Draw edges
       subtasks.forEach(st => {
         const to = nodePositions[st.id];
         if (!to) return;
@@ -1094,144 +883,194 @@
           const from = nodePositions[depId];
           if (!from) return;
           
-          // Draw curved edge
           ctx.beginPath();
-          ctx.strokeStyle = st.status === 'complete' ? 'rgba(16, 185, 129, 0.6)' : 
-                           st.status === 'running' ? 'rgba(245, 158, 11, 0.6)' : 
-                           'rgba(123, 47, 255, 0.4)';
+          ctx.strokeStyle = st.status === 'complete' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(123, 47, 255, 0.4)';
           ctx.lineWidth = 2;
-          
           const midX = (from.x + to.x) / 2;
           ctx.moveTo(from.x, from.y);
           ctx.bezierCurveTo(midX, from.y, midX, to.y, to.x, to.y);
           ctx.stroke();
-          
-          // Draw arrow
-          const angle = Math.atan2(to.y - from.y, to.x - midX);
-          const arrowSize = 8;
-          ctx.beginPath();
-          ctx.fillStyle = ctx.strokeStyle;
-          ctx.moveTo(to.x - 25, to.y);
-          ctx.lineTo(to.x - 25 - arrowSize * Math.cos(angle - Math.PI/6), to.y - arrowSize * Math.sin(angle - Math.PI/6));
-          ctx.lineTo(to.x - 25 - arrowSize * Math.cos(angle + Math.PI/6), to.y - arrowSize * Math.sin(angle + Math.PI/6));
-          ctx.closePath();
-          ctx.fill();
         });
       });
       
       // Draw nodes
-      const nodeRadius = 25;
+      const nodeRadius = 22;
       Object.entries(nodePositions).forEach(([id, pos]) => {
         const st = pos.subtask;
         if (!st) return;
         
-        const isHovered = hoveredNode === id;
-        const scale = isHovered ? 1.15 : 1;
-        const r = nodeRadius * scale;
-        
-        // Node shadow
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, r + 3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+        const colors = { pending: '#333', running: '#f59e0b', complete: '#10b981', error: '#ef4444' };
+        ctx.fillStyle = colors[st.status] || '#333';
         ctx.fill();
-        
-        // Node fill
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
-        
-        const statusColors = {
-          pending: '#333',
-          running: '#f59e0b',
-          complete: '#10b981',
-          error: '#ef4444'
-        };
-        ctx.fillStyle = statusColors[st.status] || '#333';
-        ctx.fill();
-        
-        // Node border
-        ctx.strokeStyle = isHovered ? '#fff' : 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = isHovered ? 3 : 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
         ctx.stroke();
         
-        // Node label
         ctx.fillStyle = '#fff';
-        ctx.font = `bold ${12 * scale}px "SF Mono", monospace`;
+        ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(st.id.toUpperCase(), pos.x, pos.y);
-        
-        // Model badge
-        const modelColors = { haiku: '#10b981', sonnet: '#6366f1', opus: '#ec4899' };
-        ctx.fillStyle = modelColors[st.model] || '#666';
-        ctx.font = `9px "SF Mono", monospace`;
-        ctx.fillText(st.model?.toUpperCase() || '', pos.x, pos.y + r + 12);
-      });
-      
-      // Level labels
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.font = '10px "SF Mono", monospace';
-      ctx.textAlign = 'center';
-      executionLevels.forEach((_, idx) => {
-        const x = levelSpacing * (idx + 1);
-        ctx.fillText(`LEVEL ${idx + 1}`, x, 20);
       });
     }
     
-    // Mouse interaction for graph
-    const canvas = document.getElementById('dagCanvas');
-    const tooltip = document.getElementById('graphTooltip');
+    // Stats
+    function updateStats() {
+      if (!startTime) return;
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('statTime').textContent = `${elapsed}s`;
+      document.getElementById('statSubtasks').textContent = subtasks.length;
+      document.getElementById('statLevels').textContent = executionLevels.length;
+      const tokens = subtasks.reduce((sum, st) => sum + (st.tokens || 0), 0);
+      document.getElementById('statTokens').textContent = tokens.toLocaleString();
+    }
     
-    canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    // Orchestration
+    async function runDecomposition() {
+      const task = document.getElementById('taskInput').value.trim();
+      if (!task) return alert('Please enter a task');
       
-      let found = null;
-      Object.entries(nodePositions).forEach(([id, pos]) => {
-        const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-        if (dist < 30) found = id;
-      });
+      const orchestratorModel = document.getElementById('orchestratorModel').value;
+      const strategy = document.getElementById('routingStrategy').value;
       
-      if (found !== hoveredNode) {
-        hoveredNode = found;
-        renderGraph();
+      logs = [];
+      subtasks = [];
+      executionLevels = [];
+      finalOutput = '';
+      startTime = Date.now();
+      
+      document.getElementById('runBtn').disabled = true;
+      addLog('system', null, '🚀 Starting orchestration...');
+      renderDAG();
+      
+      const statsInterval = setInterval(updateStats, 1000);
+      
+      try {
+        const response = await fetch('/api/orchestrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task, orchestratorModel, strategy })
+        });
         
-        if (found && nodePositions[found]) {
-          const st = nodePositions[found].subtask;
-          tooltip.querySelector('.tooltip-title').textContent = `${st.id}: ${st.name}`;
-          tooltip.querySelector('.tooltip-meta').textContent = 
-            `Model: ${st.model} | Status: ${st.status} | Complexity: ${st.complexity}`;
-          tooltip.querySelector('.tooltip-result').textContent = st.result || 'Pending...';
-          tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
-          tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
-          tooltip.classList.add('visible');
-        } else {
-          tooltip.classList.remove('visible');
-        }
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        taskId = data.taskId;
+        subtasks = data.subtasks;
+        executionLevels = data.executionLevels || [];
+        
+        addLog('orchestrator', orchestratorModel, `Decomposed into ${subtasks.length} subtasks`);
+        renderDAG();
+        
+        // Poll for updates
+        pollInterval = setInterval(async () => {
+          try {
+            const status = await fetch(`/api/orchestrate/status/${taskId}`).then(r => r.json());
+            
+            if (status.subtasks) {
+              status.subtasks.forEach((st, i) => {
+                const prev = subtasks[i];
+                if (prev && prev.status !== st.status) {
+                  if (st.status === 'running') addLog('subagent', st.model, `▶️ ${st.name}`);
+                  else if (st.status === 'complete') addLog('subagent', st.model, `✅ ${st.name}`);
+                }
+                subtasks[i] = { ...subtasks[i], ...st };
+              });
+              renderDAG();
+              if (currentView === 'graph') renderGraph();
+              updateStats();
+            }
+            
+            if (status.complete) {
+              clearInterval(pollInterval);
+              clearInterval(statsInterval);
+              addLog('system', null, '🎉 Complete!');
+              document.getElementById('runBtn').disabled = false;
+              
+              // Combine outputs for final result
+              finalOutput = subtasks.map(st => st.result).filter(Boolean).join('\n\n');
+              showOutput(finalOutput);
+            }
+          } catch (err) {
+            console.error('Poll error:', err);
+          }
+        }, 800);
+        
+      } catch (err) {
+        addLog('system', null, `❌ Error: ${err.message}`);
+        document.getElementById('runBtn').disabled = false;
+        clearInterval(statsInterval);
       }
+    }
+    
+    // Output
+    function showOutput(content) {
+      const lang = detectLanguage(content);
+      const highlighted = hljs.highlight(content, { language: lang, ignoreIllegals: true }).value;
+      document.getElementById('outputContent').innerHTML = `
+        <div class="output-code"><pre><code class="hljs">${highlighted}</code></pre></div>
+      `;
+    }
+    
+    function detectLanguage(content) {
+      if (content.includes('function') || content.includes('const ') || content.includes('let ')) return 'javascript';
+      if (content.includes('def ') || content.includes('import ')) return 'python';
+      if (content.includes('<html') || content.includes('<div')) return 'html';
+      return 'plaintext';
+    }
+    
+    function copyOutput() {
+      navigator.clipboard.writeText(finalOutput);
+      alert('Copied to clipboard!');
+    }
+    
+    function showSaveModal() {
+      if (!finalOutput) return alert('No output to save');
+      if (!workspacePath) return alert('Set workspace path first');
+      document.getElementById('saveModal').classList.add('visible');
+      document.getElementById('saveFilePath').focus();
+    }
+    
+    function hideSaveModal() {
+      document.getElementById('saveModal').classList.remove('visible');
+    }
+    
+    async function saveOutput() {
+      const filename = document.getElementById('saveFilePath').value.trim();
+      if (!filename) return alert('Enter a filename');
+      
+      const fullPath = workspacePath + '/' + filename;
+      
+      try {
+        const res = await fetch('/api/workspace/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: fullPath, content: finalOutput })
+        });
+        
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        hideSaveModal();
+        refreshTree();
+        addLog('system', null, `💾 Saved to ${filename}`);
+      } catch (e) {
+        alert('Failed to save: ' + e.message);
+      }
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideSaveModal();
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runDecomposition();
     });
     
-    canvas.addEventListener('mouseleave', () => {
-      hoveredNode = null;
-      tooltip.classList.remove('visible');
-      renderGraph();
-    });
-    
-    // Redraw on window resize
+    // Resize handler
     window.addEventListener('resize', () => {
-      if (currentView === 'graph' && subtasks.length) {
-        renderGraph();
-      }
+      if (currentView === 'graph') renderGraph();
     });
-    
-    // Update renderDAG to also update graph
-    const originalRenderDAG = renderDAG;
-    renderDAG = function() {
-      originalRenderDAG();
-      if (currentView === 'graph') {
-        renderGraph();
-      }
-    };
   </script>
 </body>
 </html>
