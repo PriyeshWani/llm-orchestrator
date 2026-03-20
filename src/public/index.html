@@ -9,6 +9,23 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(123, 47, 255, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(123, 47, 255, 0.6);
+    }
+    
     body {
       font-family: 'SF Mono', 'JetBrains Mono', monospace;
       background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
@@ -23,6 +40,41 @@
       grid-template-columns: auto 1fr auto;
       grid-template-rows: auto 1fr auto;
       height: 100vh;
+      min-height: 0; /* Important for nested flex/grid overflow */
+    }
+    
+    /* Responsive breakpoints */
+    @media (max-width: 1400px) {
+      .app-layout {
+        grid-template-columns: auto 1fr 320px;
+      }
+      .workspace-sidebar { width: 240px; }
+      .output-sidebar { width: 320px; }
+    }
+    
+    @media (max-width: 1200px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+      .workspace-sidebar, .output-sidebar {
+        position: fixed;
+        top: 50px;
+        bottom: 40px;
+        z-index: 100;
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
+      }
+      .workspace-sidebar { left: 0; width: 280px; }
+      .workspace-sidebar.collapsed { left: -290px; width: 280px; }
+      .output-sidebar { right: 0; width: 350px; }
+      .output-sidebar.collapsed { right: -360px; width: 350px; }
+    }
+    
+    @media (max-width: 768px) {
+      .work-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .header-controls { gap: 5px; }
+      .sidebar-toggle { padding: 6px 8px; font-size: 0.75rem; }
     }
     
     /* Header */
@@ -152,6 +204,8 @@
       overflow: hidden;
       padding: 15px;
       gap: 15px;
+      min-height: 0; /* Important for flex overflow */
+      min-width: 0; /* Prevent overflow */
     }
     
     /* Task Input */
@@ -216,6 +270,7 @@
       grid-template-columns: 1fr 1fr;
       gap: 15px;
       overflow: hidden;
+      min-height: 0; /* Important for grid overflow */
     }
     
     .panel {
@@ -225,6 +280,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      min-height: 0; /* Important for flex overflow */
     }
     
     .panel-header {
@@ -261,7 +317,9 @@
     .panel-content {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 15px;
+      min-height: 0; /* Important for flex overflow */
     }
     
     /* DAG Levels */
@@ -273,6 +331,8 @@
       background: rgba(0,0,0,0.2);
       border-radius: 10px;
       position: relative;
+      overflow-x: auto;
+      flex-wrap: nowrap;
     }
     
     .level-label {
@@ -359,10 +419,12 @@
       border-left: 1px solid rgba(255,255,255,0.1);
       display: flex;
       flex-direction: column;
-      transition: width 0.3s;
+      transition: width 0.3s, right 0.3s;
+      min-height: 0; /* Important for flex overflow */
+      overflow: hidden;
     }
     
-    .output-sidebar.collapsed { width: 0; border: none; overflow: hidden; }
+    .output-sidebar.collapsed { width: 0; border: none; }
     
     .output-header {
       padding: 12px 15px;
@@ -383,7 +445,9 @@
     .output-content {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 15px;
+      min-height: 0; /* Important for flex overflow */
     }
     
     .output-code {
